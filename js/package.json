@@ -11,5 +11,9 @@
     "@x402/evm": "2.21.0",
     "@x402/fetch": "2.21.0",
     "viem": "2.48.11"
+  },
+  "//overrides": "@cosmjs/encoding's fromBech32 defaults its length limit to Infinity, the long-standing way to say 'no limit'. @scure/base 2.3.0 started rejecting that — Number.isSafeInteger(Infinity) is false — from inside its own ^2.0.0 range, and 0.39.0 of the encoder still passes Infinity, so there is no forward version to move to. Every gno payment hits it: signing needs the chain id, which reads /status, which decodes the validator's bech32 address. 2.2.0 is the last release that accepts it.",
+  "overrides": {
+    "@scure/base": "2.2.0"
   }
 }
