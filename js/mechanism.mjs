@@ -1,0 +1,120 @@
+// The gno mechanism for the x402 "exact" scheme. An x402 client that has never
+// heard of gno gains the ability to pay a gno realm by registering this — no
+// fork of the client, no patch, no upstream change.
+//
+// It implements SchemeNetworkClient from @x402/core, which is a scheme name plus
+// one method, and it does nothing else: no HTTP, no 402 handling, no
+// broadcasting. The client library owns the protocol, the facilitator owns
+// settlement, and this owns only the chain-specific step between them.
+//
+// ExactKeetaScheme in @x402/keeta is the in-tree analogue — same shape, one
+// opaque base64 chain-native signed object in the payload.
+import { MsgEndpoint, MsgSend, decodeTxMessages } from "@gnolang/gno-js-client";
+import { Tx, uint8ArrayToBase64 } from "@gnolang/tm2-js-client";
+
+const NAMESPACE = "gno";
+const ASSET = "ugnot";
+
+// A gno buyer pays its own transaction fee: std.Fee names no payer and the ante
+// charges the first signer, so the payer of the payment is also the payer of the
+// fee. The requirements carry no gasWanted or gasFee, so the buyer chooses. This
+// offers well clear of the chain's minimum rather than tracking the gas price,
+// because an underpriced payment is refused at settle and costs the buyer the
+// resource, while an overpriced one costs it only a little more than it had to.
+const GAS_WANTED = 10_000_000n;
+const GAS_FEE = "1000000ugnot";
+
+/**
+ * Returns the gno chain id a CAIP-2-style x402 network string names, or null
+ * when the string does not name a gno chain.
+ */
+export function gnoChainId(network) {
+  if (typeof network !== "string") {
+    return null;
+  }
+  const parts = network.split(":");
+  if (parts.length !== 2) {
+    return null;
+  }
+  const [namespace, chainId] = parts;
+  if (namespace !== NAMESPACE || chainId === "") {
+    return null;
+  }
+  return chainId;
+}
+
+/**
+ * Signs gno payments for the "exact" scheme. Register it against a gno network —
+ * or the "gno:*" pattern for every gno chain — on an x402Client.
+ */
+export class ExactGnoScheme {
+  scheme = "exact";
+
+  /**
+   * @param wallet a GnoWallet connected to a provider. The connection is
+   * required: a gno sequence is sequential, so only the chain knows the next
+   * one. Sui and SVM buyers need chain access for their own reasons; only EVM's
+   * random nonce lets a buyer sign entirely offline.
+   */
+  constructor(wallet) {
+    this.wallet = wallet;
+  }
+
+  /**
+   * Builds the scheme payload: base64 of a fully signed, unbroadcast std.Tx
+   * carrying a single bank.MsgSend.
+   *
+   * The requirements are validated rather than trusted — they arrive from a
+   * seller over the network, and a malformed amount or a missing payTo would
+   * otherwise become a signed transaction that pays the wrong thing.
+   */
+  async createPaymentPayload(x402Version, paymentRequirements) {
+    const chainId = gnoChainId(paymentRequirements?.network);
+    if (chainId === null) {
+      throw new Error(`x402-gno: ${paymentRequirements?.network} does not name a gno chain`);
+    }
+    if (paymentRequirements.scheme !== this.scheme) {
+      throw new Error(`x402-gno: scheme ${paymentRequirements.scheme} is not ${this.scheme}`);
+    }
+    if (paymentRequirements.asset !== ASSET) {
+      throw new Error(`x402-gno: asset ${paymentRequirements.asset} is not ${ASSET}`);
+    }
+    if (!/^[1-9][0-9]*$/.test(paymentRequirements.amount)) {
+      throw new Error(`x402-gno: amount ${paymentRequirements.amount} is not a positive integer`);
+    }
+    if (typeof paymentRequirements.payTo !== "string" || paymentRequirements.payTo === "") {
+      throw new Error("x402-gno: requirements name no payTo");
+    }
+
+    // An absent memo binds nothing; a non-string one is a malformed offer rather
+    // than an absent memo, because signing "" against it would produce a payment
+    // the seller refuses for a reason the buyer cannot see.
+    const rawMemo = paymentRequirements.extra?.memo;
+    if (rawMemo !== undefined && typeof rawMemo !== "string") {
+      throw new Error(`x402-gno: extra.memo is ${typeof rawMemo}, want string`);
+    }
+
+    const from = await this.wallet.getAddress();
+    const tx = {
+      messages: [
+        {
+          type_url: MsgEndpoint.MSG_SEND,
+          value: MsgSend.encode({
+            from_address: from,
+            to_address: paymentRequirements.payTo,
+            amount: `${paymentRequirements.amount}${paymentRequirements.asset}`,
+          }).finish(),
+        },
+      ],
+      fee: { gas_wanted: GAS_WANTED, gas_fee: GAS_FEE },
+      memo: rawMemo ?? "",
+      signatures: [],
+    };
+
+    const signed = await this.wallet.signTransaction(tx, decodeTxMessages);
+    return {
+      x402Version,
+      payload: { transaction: uint8ArrayToBase64(Tx.encode(signed).finish()) },
+    };
+  }
+}

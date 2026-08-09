@@ -1,0 +1,74 @@
+// A stock x402 client buys from a gno seller.
+//
+// The only gno-aware line is the register() call. Everything the protocol
+// requires — issuing the request, recognising the 402, decoding the offer,
+// selecting an accepts[] entry, encoding PAYMENT-SIGNATURE, retrying — is
+// @x402/fetch's own code, unmodified, exactly as it does for Base or Solana.
+//
+// Prints a JSON report on stdout describing what happened, so a caller checks
+// the outcome rather than trusting an exit code. Diagnostics go to stderr.
+import { GnoJSONRPCProvider, GnoWallet } from "@gnolang/gno-js-client";
+import { connectTm2 } from "@gnolang/tm2-rpc";
+import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@x402/fetch";
+
+import { ExactGnoScheme } from "./mechanism.mjs";
+
+const PAYMENT_RESPONSE_HEADER = "PAYMENT-RESPONSE";
+
+// The well-known test1 key. This buyer only ever pays on throwaway chains.
+const MNEMONIC =
+  "source bonus chronic canvas draft south burst lottery vacant surface solve popular case indicate oppose farm nothing bullet exhibit title speed wink action roast";
+
+function fromEnv(name) {
+  const value = process.env[name];
+  if (value === undefined || value === "") {
+    throw new Error(`${name} must be set`);
+  }
+  return value;
+}
+
+// The node reports its address in tm2's own form, which names the transport
+// rather than the scheme an HTTP client needs.
+function httpURL(addr) {
+  return addr.replace(/^tcp:\/\//, "http://");
+}
+
+const sellerURL = fromEnv("X402_SELLER_URL");
+const rpcURL = httpURL(fromEnv("X402_GNO_RPC"));
+
+const wallet = await GnoWallet.fromMnemonic(MNEMONIC);
+wallet.connect(new GnoJSONRPCProvider(await connectTm2(rpcURL)));
+
+// Teach a stock client about gno. `register` validates nothing about the network
+// string — there is no chain allowlist — and lookup is glob-matched, so "gno:*"
+// covers every gno chain at once.
+const client = new x402Client().register("gno:*", new ExactGnoScheme(wallet));
+const fetchWithPayment = wrapFetchWithPayment(fetch, client);
+
+console.error(`buying as ${await wallet.getAddress()}`);
+
+// One call. The refusal and the payment happen inside the client.
+const paid = await fetchWithPayment(sellerURL, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+});
+const body = await paid.text();
+
+// A settlement report is expected on success and is what names the payer and the
+// transaction; a refusal may legitimately carry none, and the report says so
+// rather than failing here, because the caller checks the status.
+let settle = {};
+const settleHeader = paid.headers.get(PAYMENT_RESPONSE_HEADER);
+if (settleHeader !== null && settleHeader !== "") {
+  settle = decodePaymentResponseHeader(settleHeader);
+}
+console.error(`status: ${paid.status} settled: ${settle.success === true}`);
+
+process.stdout.write(
+  JSON.stringify({
+    status: paid.status,
+    body,
+    payer: settle.payer ?? "",
+    transaction: settle.transaction ?? "",
+  }),
+);

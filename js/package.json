@@ -1,0 +1,15 @@
+{
+  "name": "x402-gno-mechanism",
+  "private": true,
+  "type": "module",
+  "description": "The gno payment mechanism for x402 'exact', registered on a stock x402 client. Versions are exact so a signed payment changes only when a dependency is deliberately bumped.",
+  "dependencies": {
+    "@gnolang/gno-js-client": "2.0.3",
+    "@gnolang/tm2-js-client": "2.0.4",
+    "@gnolang/tm2-rpc": "1.0.0",
+    "@x402/core": "2.21.0",
+    "@x402/evm": "2.21.0",
+    "@x402/fetch": "2.21.0",
+    "viem": "2.48.11"
+  }
+}

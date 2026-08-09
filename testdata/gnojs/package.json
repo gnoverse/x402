@@ -1,0 +1,10 @@
+{
+  "name": "gnojs-interop-fixture",
+  "private": true,
+  "type": "module",
+  "description": "Signs the interop fixture with the official gno JS SDK. Versions are exact so a regenerated fixture changes only when the SDK is deliberately bumped.",
+  "dependencies": {
+    "@gnolang/gno-js-client": "2.0.3",
+    "@gnolang/tm2-js-client": "2.0.4"
+  }
+}
