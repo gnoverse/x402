@@ -2,6 +2,11 @@
 
 Pay a gno.land chain with x402. One line on a stock client — no fork, no patch, no upstream change.
 
+> [!NOTE]
+> **Not published to a registry yet.** Build it from this directory (`npm install && npm run build`)
+> and reference it by path, or use the buyer in `buy.mjs` as-is. The install below is what it will
+> be, not what it is.
+
 ```sh
 npm install @gnoverse/x402-gno
 ```
