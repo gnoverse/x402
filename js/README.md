@@ -1,20 +1,14 @@
-# @gnoverse/x402-gno
+# The gno client mechanism
 
 Pay a gno.land chain with x402. One line on a stock client — no fork, no patch, no upstream change.
 
-> [!NOTE]
-> **Not published to a registry yet.** Build it from the repository root (`make js`)
-> and reference it by path, or use the buyer in `buy.mjs` as-is. The install below is what it will
-> be, not what it is.
-
-```sh
-npm install @gnoverse/x402-gno
-```
+Build it from the repository root with `make js`. There is no registry release, so a consumer works
+against this repository — `buy.mjs` beside these sources is a working buyer that does exactly that.
 
 ```js
 import { x402Client } from "@x402/core/client";
 import { wrapFetchWithPayment } from "@x402/fetch";
-import { ExactGnoScheme } from "@gnoverse/x402-gno/exact/client";
+import { ExactGnoScheme } from "./js/dist/client.mjs";
 
 const client = new x402Client();
 client.register("gno:*", new ExactGnoScheme(wallet)); // ← the only gno-aware line
@@ -25,6 +19,10 @@ const res = await paid("https://api.example.com/weather");
 
 `wallet` is a `GnoWallet` from `@gnolang/gno-js-client`, connected to a provider. The connection is
 required: a gno sequence is sequential, so only the chain knows the next one.
+
+Inside this repository the same import resolves through the manifest's `exports` map instead of the
+built path, which is what `buy.mjs` does — so the map is exercised by the payment test rather than
+only on a future install.
 
 ## What it is
 

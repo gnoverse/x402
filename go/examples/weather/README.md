@@ -91,7 +91,7 @@ omitted.
 There is no Go client mechanism yet, so a Go buyer cannot pay this. The JS buyer in `js/` can:
 
 ```sh
-make js                     # install and build @gnoverse/x402-gno
+make js                     # install and build the client mechanism
 X402_SELLER_URL=http://localhost:8080/weather X402_GNO_RPC=<RPC URL> node js/buy.mjs
 ```
 

@@ -21,7 +21,7 @@ middleware. This supplies the chain-specific parts:
 >
 > - No gno scheme document is merged upstream yet.
 > - Point it at testnets. Nothing here has been reviewed for real funds.
-> - The client package is not published to a registry — build it with `make js` from the repository root.
+> - The client mechanism has no registry release — build it with `make js` from the repository root.
 
 ## Sell something
 
@@ -66,7 +66,7 @@ Runnable, against a facilitator and a real chain → **[go/examples/weather](go/
 ## Pay for it
 
 ```js
-import { ExactGnoScheme } from "@gnoverse/x402-gno/exact/client";
+import { ExactGnoScheme } from "./js/dist/client.mjs";
 
 const client = new x402Client().register("gno:*", new ExactGnoScheme(wallet));
 const paid = wrapFetchWithPayment(fetch, client);
@@ -74,8 +74,9 @@ const res = await paid("https://api.example.com/weather");
 ```
 
 Recognising the 402, selecting an entry, encoding `PAYMENT-SIGNATURE` and retrying are
-`@x402/fetch`'s own code, unmodified. The payment is signed against the chain id the offer names, so
-one client pays `gno:test14` and `gno:dev` without reconfiguration — see [js/README.md](js/README.md).
+`@x402/fetch`'s own code, unmodified. The payment is signed against the chain id the **offer** names
+rather than the one the wallet's node reports — see [js/README.md](js/README.md) for what that does
+and does not buy you.
 
 ## What's in here
 
@@ -89,7 +90,7 @@ implementation detail of that role.
 |------|------|------|
 | server | `go/mechanisms/gno/exact/server/` | upstream's `SchemeNetworkServer`, implemented for gno |
 | facilitator | `go/facilitator/` | verification, settlement, and the `/verify` `/settle` `/supported` service |
-| client | `js/src/exact/client.ts` | `@gnoverse/x402-gno/exact/client`, TypeScript |
+| client | `js/src/exact/client.ts` | upstream's `SchemeNetworkClient`, TypeScript |
 
 Plus `go/cmd/gnofacilitator/` (the binary), `go/examples/weather/` (a priced endpoint you can run
 and curl) and `go/e2e/` (one real payment through a real node — its own Go module).
