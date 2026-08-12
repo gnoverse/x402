@@ -27,8 +27,8 @@ import (
 	x402http "github.com/x402-foundation/x402/go/v2/http"
 	nethttpmw "github.com/x402-foundation/x402/go/v2/http/nethttp"
 
-	x402gno "github.com/gnoverse/x402"
-	gnoexact "github.com/gnoverse/x402/mechanisms/gno/exact/server"
+	x402gno "github.com/gnoverse/x402/go"
+	gnoexact "github.com/gnoverse/x402/go/mechanisms/gno/exact/server"
 )
 
 // The harness's in-memory node serves this chain, so it is the CAIP-2 reference
@@ -61,22 +61,29 @@ func TestAStockClientPaysAGnoSeller(t *testing.T) {
 	testscript.Run(t, params)
 }
 
-// buyerScript locates the JS buyer and skips when it has not been built, so a
-// Go-only checkout is never blocked on npm.
+// buyerScript locates the JS buyer, two levels up: this module is go/e2e and the
+// JS tree is the repository's own js/, a sibling of go/.
+//
+// A missing buy.mjs FAILS rather than skips. It is committed, so its absence means
+// the path is wrong — which is how a repository reshuffle turns this whole test
+// into a silent pass. Only the built output is allowed to be absent, because
+// building it needs npm and a Go-only checkout should not be blocked on that.
 func buyerScript(t *testing.T) string {
 	t.Helper()
 
 	wd, err := os.Getwd()
 	require.NoError(t, err)
 
-	buyer := filepath.Join(wd, "..", "js", "buy.mjs")
+	repo := filepath.Join(wd, "..", "..")
+
+	buyer := filepath.Join(repo, "js", "buy.mjs")
+	_, err = os.Stat(buyer)
+	require.NoError(t, err, "the JS buyer is committed, so this path is wrong")
+
 	// buy.mjs imports the mechanism by package name, so the package has to be
 	// installed and built, not merely present in the tree.
-	built := filepath.Join(wd, "..", "js", "dist", "mechanism.mjs")
-	for _, needed := range []string{buyer, built} {
-		if _, err := os.Stat(needed); err != nil {
-			t.Skipf("the JS buyer is not ready (%s); run `make js`", needed)
-		}
+	if _, err := os.Stat(filepath.Join(repo, "js", "dist", "mechanism.mjs")); err != nil {
+		t.Skipf("the JS mechanism is not built (%v); run `make js`", err)
 	}
 	return buyer
 }

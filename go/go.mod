@@ -1,27 +1,10 @@
-// The end-to-end harness is its own module so the library never depends on it.
-//
-// It drives gno.land/pkg/integration, which describes itself as experimental, and
-// the gno pin here is a master pseudo-version. Behind a module boundary a harness
-// break cannot block publishing the library, and the harness can bump gno without
-// changing what the library compiles against.
-//
-// A nested module is excluded from the parent's ./... , so `go test ./...` at the
-// root never starts a chain. `make e2e` runs this.
-module github.com/gnoverse/x402/e2e
+module github.com/gnoverse/x402/go
 
 go 1.26.5
 
-// Never published, and nothing ever `go get`s it — so a relative replace is the
-// honest way to reach the library under test rather than a version that does not
-// exist yet.
-replace github.com/gnoverse/x402 => ../
-
 require (
 	github.com/gnolang/gno v0.0.0-20260624072255-1822034ddd17
-	github.com/gnoverse/x402 v0.0.0
-	github.com/rogpeppe/go-internal v1.15.0
 	github.com/stretchr/testify v1.11.1
-	github.com/x402-foundation/x402/go/v2 v2.22.0
 )
 
 require (
@@ -72,18 +55,19 @@ require (
 	github.com/mimoo/StrobeGo v0.0.0-20181016162300-f8f6d4d2b643 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/peterbourgon/ff/v3 v3.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.23.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/sig-0/insertion-queue v0.0.0-20241004125609-6b3ca841346b // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/x402-foundation/x402/go/v2 v2.22.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
@@ -110,7 +94,6 @@ require (
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/tools v0.45.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect

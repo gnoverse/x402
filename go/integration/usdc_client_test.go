@@ -24,7 +24,7 @@ import (
 	gnoclient "github.com/gnolang/gno/gno.land/pkg/gnoclient"
 	rpcclient "github.com/gnolang/gno/tm2/pkg/bft/rpc/client"
 
-	"github.com/gnoverse/x402"
+	"github.com/gnoverse/x402/go"
 )
 
 // The USDC option this seller advertises, matching cmd/gnowars. The extra fields are

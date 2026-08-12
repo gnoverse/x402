@@ -15,8 +15,8 @@ import (
 	x402http "github.com/x402-foundation/x402/go/v2/http"
 	nethttpmw "github.com/x402-foundation/x402/go/v2/http/nethttp"
 
-	x402gno "github.com/gnoverse/x402"
-	gnoexact "github.com/gnoverse/x402/mechanisms/gno/exact/server"
+	x402gno "github.com/gnoverse/x402/go"
+	gnoexact "github.com/gnoverse/x402/go/mechanisms/gno/exact/server"
 )
 
 // keylessNode stands in for the chain. The 402 is decided from the seller's own

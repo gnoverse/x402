@@ -13,14 +13,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with: { go-version: '1.26.5' }
+      # The repository is laid out by language, so every Go step runs in go/.
       - run: go test -short -race ./...
+        working-directory: go
       - run: go vet ./...
-      # e2e/ is a separate module, so the root ./... never reaches it. Vet it here
-      # or the harness rots unnoticed until someone runs it.
-      - run: cd e2e && go vet ./...
+        working-directory: go
+      # go/e2e is a separate module, so go/... never reaches it. Vet it here or
+      # the harness rots unnoticed until someone runs it.
+      - run: go vet ./...
+        working-directory: go/e2e
       # Compile-check the network-tagged tests for the same reason.
       - run: go vet -tags=integration ./...
+        working-directory: go
       - run: gofmt -l -d . | tee /tmp/fmt && test ! -s /tmp/fmt
+        working-directory: go
 
   js:
     runs-on: ubuntu-latest

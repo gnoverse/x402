@@ -36,13 +36,13 @@ Three processes. The facilitator talks to the chain; the seller never does.
 and exits rather than blame payers for an operator's mismatch.
 
 ```sh
-go run ./cmd/gnofacilitator -rpc <RPC URL> -chain-id <CHAIN ID> -listen :8402
+cd go && go run ./cmd/gnofacilitator -rpc <RPC URL> -chain-id <CHAIN ID> -listen :8402
 ```
 
 **3. The seller.** `-network` is `gno:` plus that same chain id.
 
 ```sh
-go run ./examples/weather \
+cd go && go run ./examples/weather \
   -pay-to g1u7y667z64x2h7vc6fmpcprgey4ck233jaww9zq \
   -network gno:<CHAIN ID> \
   -price 250000ugnot \

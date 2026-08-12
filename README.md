@@ -66,7 +66,7 @@ where v2 puts them, not in the body:
   }] }
 ```
 
-Runnable, with a facilitator and a real chain → **[examples/weather](examples/weather)**.
+Runnable, with a facilitator and a real chain → **[go/examples/weather](go/examples/weather)**.
 
 ## Pay for it
 
@@ -84,14 +84,17 @@ pays `gno:test14` and `gno:dev` without being reconfigured — see [js/README.md
 
 ## What's in here
 
+Laid out by language, the way [x402-foundation/x402](https://github.com/x402-foundation/x402) is:
+`go/` and `js/` are siblings and neither owns the root. Every `make` target runs from here.
+
 | Path | What |
 |------|------|
-| `mechanisms/gno/exact/server/` | the seller mechanism — upstream's `SchemeNetworkServer` for gno |
-| `cmd/gnofacilitator/` | the keyless facilitator: `/verify`, `/settle`, `/supported` |
+| `go/` | the Go module: wire types, verification, settlement, and the seller mechanism |
+| `go/mechanisms/gno/exact/server/` | upstream's `SchemeNetworkServer`, implemented for gno |
+| `go/cmd/gnofacilitator/` | the keyless facilitator: `/verify`, `/settle`, `/supported` |
+| `go/examples/weather/` | a priced HTTP endpoint you can run and curl |
+| `go/e2e/` | one real payment, through a real node — its own Go module |
 | `js/` | `@gnoverse/x402-gno` — the client mechanism, TypeScript |
-| `examples/weather/` | a priced HTTP endpoint you can run and curl |
-| `e2e/` | one real payment, through a real node — its own Go module |
-| root package | the wire types, verification, and settlement this repo started as |
 
 ## The fee is yours
 
