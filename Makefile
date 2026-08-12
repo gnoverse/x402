@@ -1,4 +1,4 @@
-.PHONY: test test-integration lint js js-test
+.PHONY: test test-integration test-e2e lint js js-test
 
 test:
 	go test ./...
@@ -7,8 +7,16 @@ test:
 test-integration:
 	go test -tags=integration -p 1 ./...
 
+# One payment, all the way through: a real in-memory node, our facilitator, the
+# canonical middleware, and the JS buyer. e2e/ is its own module so the root
+# ./... never starts a chain, which is also why it needs its own target. The
+# buyer is half the assertion, so the package has to be built first.
+test-e2e: js/dist
+	cd e2e && go test -count=1 ./...
+
 lint:
 	go vet ./...
+	cd e2e && go vet ./...
 	gofmt -l . | tee /dev/stderr | (! read)
 
 # The buyers in js/ are stock @x402/* clients driven by the integration tests. They
