@@ -1000,3 +1000,12 @@ func TestChainIDFromNetwork(t *testing.T) {
 		assert.Error(t, err, "network %q names no gno chain-id", network)
 	}
 }
+
+// A CAIP-2 name splits into exactly two parts, and every x402 client splits it
+// that way to decide which mechanism handles the payment. A chain-id carrying its
+// own colon therefore yields a network name no client can address, so reading a
+// chain-id out of one would settle against a network the ecosystem cannot name.
+func TestChainIDFromNetworkRejectsASecondColon(t *testing.T) {
+	_, err := chainIDFromNetwork("gno:test:14")
+	assert.Error(t, err)
+}

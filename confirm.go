@@ -120,9 +120,13 @@ func paymentTxHash(tx *std.Tx) ([]byte, error) {
 // chainIDFromNetwork reads the chain-id out of a CAIP-2 gno network name, the id
 // the signature's sign doc covers. It comes from the requirements the seller
 // already publishes, so no second configuration field can disagree with them.
+//
+// A CAIP-2 name splits into exactly two parts, and clients split it that way to
+// pick the mechanism that handles the payment. A chain-id may therefore not carry
+// a colon of its own, or it names a network no client can address.
 func chainIDFromNetwork(network string) (string, error) {
 	chainID, ok := strings.CutPrefix(network, "gno:")
-	if !ok || chainID == "" {
+	if !ok || chainID == "" || strings.Contains(chainID, ":") {
 		return "", fmt.Errorf("network %q is not gno:<chain-id>", network)
 	}
 	return chainID, nil
