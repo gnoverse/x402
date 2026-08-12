@@ -46,11 +46,9 @@
   "devDependencies": {
     "@types/node": "26.2.0",
     "@x402/core": "2.21.0",
-    "@x402/evm": "2.21.0",
     "@x402/fetch": "2.21.0",
     "tsdown": "0.22.14",
     "typescript": "7.0.2",
-    "viem": "2.48.11",
     "vitest": "4.1.10"
   }
 }

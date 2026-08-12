@@ -5,6 +5,7 @@ go 1.26.5
 require (
 	github.com/gnolang/gno v0.0.0-20260624072255-1822034ddd17
 	github.com/stretchr/testify v1.11.1
+	github.com/x402-foundation/x402/go/v2 v2.22.0
 )
 
 require (
@@ -67,7 +68,6 @@ require (
 	github.com/sig-0/insertion-queue v0.0.0-20241004125609-6b3ca841346b // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/x402-foundation/x402/go/v2 v2.22.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect

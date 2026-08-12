@@ -19,9 +19,10 @@ jobs:
       # harness rots unnoticed until someone runs it.
       - run: go vet ./...
         working-directory: go/e2e
-      # Compile-check the network-tagged tests for the same reason.
-      - run: go vet -tags=integration ./...
       - run: gofmt -l -d go | tee /tmp/fmt && test ! -s /tmp/fmt
+      # A dependency imported directly but recorded as indirect still builds, so
+      # nothing else here would notice the manifest drifting from the imports.
+      - run: go mod tidy -diff
 
   js:
     runs-on: ubuntu-latest

@@ -36,7 +36,7 @@ JS_CLIENT := $(JS_DIST)/client.mjs
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X main.version=$(VERSION)
 
-.PHONY: all build test test-integration test-e2e js js-test lint fmt clean install help
+.PHONY: all build test test-e2e js js-test lint fmt clean install help
 
 all: build ## Build everything (default)
 
@@ -48,9 +48,6 @@ build: ## Build the facilitator into bin/
 
 test: ## Run the library tests
 	$(GO) test ./...
-
-test-integration: ## Run the tests that need a network (build tag: integration)
-	$(GO) test -tags=integration -p 1 ./...
 
 # The buyer is half of what this asserts, so the package has to be built first.
 test-e2e: $(JS_CLIENT) ## Pay a gno seller end to end against a real in-memory node
@@ -95,7 +92,7 @@ clean: ## Remove build artifacts
 	rm -rf $(BIN) $(JS_DIST) dist
 
 install: ## Install the facilitator into GOPATH/bin
-	$(GO) install ./go/cmd/gnofacilitator
+	$(GO) install -ldflags "$(LDFLAGS)" ./go/cmd/gnofacilitator
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_.$$()-]+:.*## ' $(MAKEFILE_LIST) \

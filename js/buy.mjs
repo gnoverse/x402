@@ -8,7 +8,6 @@
 // Prints a JSON report on stdout describing what happened, so a caller checks
 // the outcome rather than trusting an exit code. Diagnostics go to stderr.
 import { GnoJSONRPCProvider, GnoWallet } from "@gnolang/gno-js-client";
-import { connectTm2 } from "@gnolang/tm2-rpc";
 import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@x402/fetch";
 
 // Imported by package name, not by path: this buyer goes through the same
@@ -40,7 +39,10 @@ const sellerURL = fromEnv("X402_SELLER_URL");
 const rpcURL = httpURL(fromEnv("X402_GNO_RPC"));
 
 const wallet = await GnoWallet.fromMnemonic(MNEMONIC);
-wallet.connect(new GnoJSONRPCProvider(await connectTm2(rpcURL)));
+// create is the provider's public factory; its constructor is protected, and
+// reaching a transport client for it would mean depending on a package this
+// buyer only ever resolved by hoisting.
+wallet.connect(await GnoJSONRPCProvider.create(rpcURL));
 
 // Teach a stock client about gno. `register` validates nothing about the network
 // string — there is no chain allowlist — and lookup is glob-matched, so "gno:*"
