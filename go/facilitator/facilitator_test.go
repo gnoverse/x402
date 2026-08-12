@@ -755,7 +755,7 @@ func TestFacilitator_LogsWhichRequirementsMemoFailed(t *testing.T) {
 			wantCause: "want string",
 		},
 		"memo is over the cap": {
-			extra:     map[string]any{"memo": strings.Repeat("a", maxMemoBytes+1)},
+			extra:     map[string]any{"memo": strings.Repeat("a", MaxMemoBytes+1)},
 			wantCause: "exceeding the 256-byte maximum",
 		},
 	}

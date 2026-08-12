@@ -268,9 +268,9 @@ func TestVerifyStatic_Rejections(t *testing.T) {
 		}(), txFixture(t, nil), ReasonInvalidRequirements},
 		{"memo over the cap", func() PaymentRequirements {
 			r := reqFixture()
-			r.Extra = map[string]any{"memo": strings.Repeat("a", maxMemoBytes+1)}
+			r.Extra = map[string]any{"memo": strings.Repeat("a", MaxMemoBytes+1)}
 			return r
-		}(), txFixture(t, func(tx *std.Tx) { tx.Memo = strings.Repeat("a", maxMemoBytes+1) }), ReasonInvalidRequirements},
+		}(), txFixture(t, func(tx *std.Tx) { tx.Memo = strings.Repeat("a", MaxMemoBytes+1) }), ReasonInvalidRequirements},
 		{"no signature", reqFixture(), txFixture(t, func(tx *std.Tx) {
 			tx.Signatures = nil
 		}), ReasonSignatureCount},

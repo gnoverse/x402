@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/gnolang/gno/tm2/pkg/std"
+	"github.com/gnoverse/x402/go/facilitator"
 	x402 "github.com/x402-foundation/x402/go/v2"
 	"github.com/x402-foundation/x402/go/v2/types"
 )
@@ -124,15 +125,42 @@ func checkPayable(amount x402.AssetAmount) error {
 //
 // No paymentFlow key is emitted: the ordering is authorization, the
 // specification's default, which may be omitted.
+//
+// A memo the mechanism will not carry is refused here. The facilitator enforces
+// the cap on every payment, and correctly blames the requirements for it — but
+// the requirements are the seller's, and this is the last point at which the
+// seller is the one being told.
 func (s *ExactGnoScheme) EnhancePaymentRequirements(
 	_ context.Context,
 	requirements types.PaymentRequirements,
 	_ types.SupportedKind,
 	_ []string,
 ) (types.PaymentRequirements, error) {
+	if err := checkMemo(requirements.Extra); err != nil {
+		return types.PaymentRequirements{}, err
+	}
 	if requirements.Extra == nil {
 		requirements.Extra = make(map[string]interface{}, 1)
 	}
 	requirements.Extra["areFeesSponsored"] = false
 	return requirements, nil
+}
+
+// checkMemo refuses an extra.memo the facilitator would refuse on every payment.
+// The cap is counted in bytes, which is what a gno memo and the facilitator's own
+// check both measure.
+func checkMemo(extra map[string]interface{}) error {
+	raw, present := extra["memo"]
+	if !present {
+		return nil
+	}
+	memo, ok := raw.(string)
+	if !ok {
+		return fmt.Errorf("x402: gno extra.memo is %T, want string", raw)
+	}
+	if len(memo) > facilitator.MaxMemoBytes {
+		return fmt.Errorf("x402: gno extra.memo is %d bytes, over the %d-byte maximum a payment can carry",
+			len(memo), facilitator.MaxMemoBytes)
+	}
+	return nil
 }

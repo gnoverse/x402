@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	"github.com/gnoverse/x402/go/facilitator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	x402 "github.com/x402-foundation/x402/go/v2"
@@ -138,4 +140,43 @@ func TestEnhanceKeepsASellersMemo(t *testing.T) {
 	})
 	assert.Equal(t, "invoice-7", got.Extra["memo"])
 	assert.Equal(t, false, got.Extra["areFeesSponsored"])
+}
+
+// TestEnhanceRefusesAMemoTheSchemeWillNotCarry pins that a memo the facilitator
+// would refuse is refused while the requirements are being built.
+//
+// The cap is the facilitator's, enforced on every payment. A seller passing an
+// over-cap or non-string memo therefore published a route whose every payment was
+// refused as invalid_payment_requirements — the right code, since the
+// requirements are the seller's, but arriving once per buyer instead of once at
+// the seller. Enhancement is where the seller's own config can still be reported
+// to the seller.
+func TestEnhanceRefusesAMemoTheSchemeWillNotCarry(t *testing.T) {
+	for name, memo := range map[string]interface{}{
+		"over the cap":           strings.Repeat("a", facilitator.MaxMemoBytes+1),
+		"not a string":           42,
+		"multibyte over the cap": strings.Repeat("é", facilitator.MaxMemoBytes),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewExactGnoScheme().EnhancePaymentRequirements(
+				context.Background(),
+				types.PaymentRequirements{
+					Scheme:  "exact",
+					Network: "gno:dev",
+					Extra:   map[string]interface{}{"memo": memo},
+				},
+				types.SupportedKind{}, nil)
+			assert.Error(t, err)
+		})
+	}
+}
+
+// A memo exactly at the cap is payable, so enhancement must not refuse it.
+func TestEnhanceAcceptsAMemoAtTheCap(t *testing.T) {
+	got := enhance(t, types.PaymentRequirements{
+		Scheme:  "exact",
+		Network: "gno:dev",
+		Extra:   map[string]interface{}{"memo": strings.Repeat("a", facilitator.MaxMemoBytes)},
+	})
+	assert.Len(t, got.Extra["memo"], facilitator.MaxMemoBytes)
 }

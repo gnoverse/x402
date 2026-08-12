@@ -56,7 +56,7 @@ func TestPaymentRequirements_ExtraKeepsUnknownKeys(t *testing.T) {
 }
 
 func TestPaymentRequirements_Memo(t *testing.T) {
-	atCap := strings.Repeat("a", maxMemoBytes)
+	atCap := strings.Repeat("a", MaxMemoBytes)
 
 	cases := []struct {
 		name    string

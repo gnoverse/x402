@@ -12,11 +12,17 @@ const (
 
 	// schemeExact is the only payment scheme this implementation supports.
 	schemeExact = "exact"
-
-	// maxMemoBytes caps extra.memo; a longer memo would bloat the signed tx
-	// and every echo of the requirements.
-	maxMemoBytes = 256
 )
+
+// MaxMemoBytes caps extra.memo; a longer memo would bloat the signed tx and every
+// echo of the requirements. gno's own limit is far higher, so this is the scheme's
+// policy rather than the chain's.
+//
+// It is exported because both halves of the mechanism answer for it: the
+// facilitator refuses an over-cap memo on every payment, and the seller has to
+// refuse one while the requirements are still its own to fix. One name keeps the
+// two from drifting apart.
+const MaxMemoBytes = 256
 
 // PaymentRequirements is one entry of a 402 response's accepts array. Extra is
 // an open map so that scheme keys this implementation does not know survive the
@@ -33,7 +39,7 @@ type PaymentRequirements struct {
 
 // Memo returns extra.memo, the memo the requirements bind the payment's
 // transaction to, and "" when they bind none. A memo that is present but not a
-// string, or longer than maxMemoBytes, is an error rather than an absent memo:
+// string, or longer than MaxMemoBytes, is an error rather than an absent memo:
 // reading either as "" would silently drop the binding and yield a payment the
 // seller rejects. This is the single enforcement point for the cap.
 func (r PaymentRequirements) Memo() (string, error) {
@@ -45,8 +51,8 @@ func (r PaymentRequirements) Memo() (string, error) {
 	if !ok {
 		return "", fmt.Errorf("x402: extra.memo is %T, want string", v)
 	}
-	if len(memo) > maxMemoBytes {
-		return "", fmt.Errorf("x402: extra.memo is %d bytes, exceeding the %d-byte maximum", len(memo), maxMemoBytes)
+	if len(memo) > MaxMemoBytes {
+		return "", fmt.Errorf("x402: extra.memo is %d bytes, exceeding the %d-byte maximum", len(memo), MaxMemoBytes)
 	}
 	return memo, nil
 }
