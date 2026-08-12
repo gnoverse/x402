@@ -1,0 +1,68 @@
+# @gnoverse/x402-gno
+
+Pay a gno.land chain with x402. One line on a stock client — no fork, no patch, no upstream change.
+
+```sh
+npm install @gnoverse/x402-gno
+```
+
+```js
+import { x402Client } from "@x402/core/client";
+import { wrapFetchWithPayment } from "@x402/fetch";
+import { ExactGnoScheme } from "@gnoverse/x402-gno";
+
+const client = new x402Client();
+client.register("gno:*", new ExactGnoScheme(wallet)); // ← the only gno-aware line
+
+const paid = wrapFetchWithPayment(fetch, client);
+const res = await paid("https://api.example.com/weather");
+```
+
+`wallet` is a `GnoWallet` from `@gnolang/gno-js-client`, connected to a provider. The connection is
+required: a gno sequence is sequential, so only the chain knows the next one.
+
+## What it is
+
+`ExactGnoScheme` implements `SchemeNetworkClient` from `@x402/core` — a scheme name plus one method.
+It does nothing else: no HTTP, no 402 handling, no broadcasting. The client library owns the
+protocol, the facilitator owns settlement, and this owns only the chain-specific step between them.
+
+Its payload is one field, `transaction`: base64 of a fully signed, unbroadcast `std.Tx` carrying a
+single `bank.MsgSend`.
+
+## One buyer, any gno chain
+
+Registering `"gno:*"` means it. The payment is signed against the chain id the **offer** names, so
+one client pays `gno:test14` and `gno:dev` without being reconfigured.
+
+That is worth stating because the obvious implementation cannot do it: `Wallet.signTransaction`
+takes the chain id from the node it is connected to and offers no override, which would pin a buyer
+to a single chain. This builds the sign doc itself instead, and a test holds the result
+byte-identical to the wallet's own signing.
+
+## The fee is yours
+
+gno has no fee delegation and this scheme does not pretend otherwise. `std.Fee` names no payer and
+the chain charges the first signer, so the payer of the payment is also the payer of the network
+fee, and the facilitator holds no key — it only broadcasts what you signed. A gno offer says so:
+`extra.areFeesSponsored` is `false`.
+
+The requirements carry no gas fields, so the buyer chooses. This offers well clear of the chain's
+minimum rather than tracking the gas price: an underpriced payment is refused at settle and costs
+you the resource, while an overpriced one costs a little more than it had to.
+
+## What it refuses
+
+The requirements arrive from a seller over the network, so they are validated rather than trusted —
+a malformed amount or a missing `payTo` would otherwise become a signed transaction that pays the
+wrong thing. It throws on a network that is not `gno:<chain-id>`, a scheme that is not `exact`, an
+asset that is not `ugnot`, an amount that is not a positive integer, an absent `payTo`, and an
+`extra.memo` that is present but not a string.
+
+## Development
+
+```sh
+npm run typecheck   # TypeScript 7 (the native compiler)
+npm test            # vitest
+npm run build       # typecheck, then emit dist/
+```

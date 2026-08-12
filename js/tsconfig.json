@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "verbatimModuleSyntax": true,
+
+    // @ledgerhq/hw-transport, reached through the wallet's Ledger signer, declares
+    // EventEmitter<[never]> in a form modern @types/node rejects. It is a
+    // dependency's own typings, not reachable from anything here, and this skips
+    // checking .d.ts files only — everything under src stays fully checked.
+    "skipLibCheck": true,
+
+    "declaration": true,
+    "outDir": "dist",
+    "noEmit": true
+  },
+  "include": ["src"]
+}

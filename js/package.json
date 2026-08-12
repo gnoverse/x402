@@ -1,19 +1,51 @@
 {
-  "name": "x402-gno-mechanism",
-  "private": true,
+  "name": "@gnoverse/x402-gno",
+  "version": "0.1.0",
   "type": "module",
-  "description": "The gno payment mechanism for x402 'exact', registered on a stock x402 client. Versions are exact so a signed payment changes only when a dependency is deliberately bumped.",
+  "description": "The gno payment mechanism for the x402 'exact' scheme. Register it on a stock x402 client and it can pay any gno chain named in an offer.",
+  "license": "Apache-2.0",
+  "homepage": "https://gno.land/",
+  "keywords": [
+    "x402",
+    "gno",
+    "gnoland",
+    "tendermint2",
+    "payments"
+  ],
+  "files": [
+    "dist/"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/mechanism.d.mts",
+      "default": "./dist/mechanism.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "build": "tsc && tsdown"
+  },
+  "//dependencies": "Versions are exact so a signed payment changes only when a dependency is deliberately bumped. @x402/core is a peer: only its types are used, and a mechanism must not pull in a second copy of the client its consumer already has.",
   "dependencies": {
     "@gnolang/gno-js-client": "2.0.3",
-    "@gnolang/tm2-js-client": "2.0.4",
-    "@gnolang/tm2-rpc": "1.0.0",
+    "@gnolang/tm2-js-client": "2.0.4"
+  },
+  "peerDependencies": {
+    "@x402/core": ">=2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
     "@x402/core": "2.21.0",
     "@x402/evm": "2.21.0",
     "@x402/fetch": "2.21.0",
-    "viem": "2.48.11"
-  },
-  "//overrides": "@cosmjs/encoding's fromBech32 defaults its length limit to Infinity, the long-standing way to say 'no limit'. @scure/base 2.3.0 started rejecting that — Number.isSafeInteger(Infinity) is false — from inside its own ^2.0.0 range, and 0.39.0 of the encoder still passes Infinity, so there is no forward version to move to. Every gno payment hits it: signing needs the chain id, which reads /status, which decodes the validator's bech32 address. 2.2.0 is the last release that accepts it.",
-  "overrides": {
-    "@scure/base": "2.2.0"
+    "tsdown": "0.22.14",
+    "typescript": "7.0.2",
+    "viem": "2.48.11",
+    "vitest": "4.1.10"
   }
 }

@@ -11,7 +11,10 @@ import { GnoJSONRPCProvider, GnoWallet } from "@gnolang/gno-js-client";
 import { connectTm2 } from "@gnolang/tm2-rpc";
 import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@x402/fetch";
 
-import { ExactGnoScheme } from "./mechanism.mjs";
+// Imported by package name, not by path: this buyer goes through the same
+// entrypoint a stranger installing the package would, so a broken exports map
+// fails here rather than after publishing.
+import { ExactGnoScheme } from "@gnoverse/x402-gno";
 
 const PAYMENT_RESPONSE_HEADER = "PAYMENT-RESPONSE";
 
