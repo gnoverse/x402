@@ -22,7 +22,7 @@
     "skipLibCheck": true,
 
     "declaration": true,
-    "outDir": "dist",
+    "outDir": "js/dist",
     "noEmit": true
   },
   "include": ["js/src"]

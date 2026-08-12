@@ -76,5 +76,5 @@ the repository root, so these run from there.
 ```sh
 npm run typecheck   # TypeScript 7 (the native compiler)
 npm test            # vitest
-npm run build       # typecheck, then emit dist/
+npm run build       # typecheck, then emit js/dist/
 ```

@@ -26,6 +26,10 @@ E2E := go/e2e
 BIN := bin
 FACILITATOR := $(BIN)/gnofacilitator
 
+# The JS mechanism emits under js/, not the root dist/ that goreleaser owns.
+JS_DIST := js/dist
+JS_CLIENT := $(JS_DIST)/client.mjs
+
 # A released binary is stamped by goreleaser; a local one says where it came from.
 # Falls back to "dev", which is what the source declares, so the two never
 # disagree about what an unstamped build is called.
@@ -49,18 +53,18 @@ test-integration: ## Run the tests that need a network (build tag: integration)
 	$(GO) test -tags=integration -p 1 ./...
 
 # The buyer is half of what this asserts, so the package has to be built first.
-test-e2e: dist ## Pay a gno seller end to end against a real in-memory node
+test-e2e: $(JS_CLIENT) ## Pay a gno seller end to end against a real in-memory node
 	cd $(E2E) && $(GO) test -count=1 ./...
 
 # The buyers in js/ are stock @x402/* clients. They are opt-in so a Go-only
 # checkout is never blocked on npm. buy.mjs imports the mechanism by package name,
 # the way a stranger would, so the package must be built and not merely installed.
-js: dist ## Install and build the JS mechanism
+js: $(JS_CLIENT) ## Install and build the JS mechanism
 
-js-test: dist ## Run the JS mechanism's tests
+js-test: $(JS_CLIENT) ## Run the JS mechanism's tests
 	$(NPM) test
 
-node_modules: package.json
+node_modules: package.json package-lock.json
 	$(NPM) install --no-fund --no-audit
 	touch $@
 
@@ -69,9 +73,13 @@ node_modules: package.json
 # the package publishes.
 TS_SOURCES := $(wildcard js/src/*.ts) $(wildcard js/src/exact/*.ts)
 
-dist: node_modules tsconfig.json tsdown.config.ts $(TS_SOURCES)
+# The emitted client, not the directory that holds it. A directory's mtime says
+# nothing about whether the build finished — and .DELETE_ON_ERROR: cannot rescue
+# one, because it unlinks its target and that fails on a directory. Naming the
+# file the payment test actually loads means a half-run build is retried instead
+# of mistaken for finished work.
+$(JS_CLIENT): node_modules tsconfig.json tsdown.config.ts $(TS_SOURCES)
 	$(NPM) run build
-	touch $@
 
 lint: ## Vet both Go modules and check formatting
 	$(GO) vet ./...
@@ -84,7 +92,7 @@ fmt: ## Format the Go sources
 # node_modules is a fetched dependency rather than an artifact, and refetching it
 # is expensive, so it survives. Remove it by hand to start over.
 clean: ## Remove build artifacts
-	rm -rf $(BIN) dist
+	rm -rf $(BIN) $(JS_DIST) dist
 
 install: ## Install the facilitator into GOPATH/bin
 	$(GO) install ./go/cmd/gnofacilitator
