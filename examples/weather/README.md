@@ -86,11 +86,17 @@ omitted.
 There is no Go client mechanism yet, so a Go buyer cannot pay this. The JS buyer in `js/` can:
 
 ```sh
+make js                     # install and build @gnoverse/x402-gno
 X402_SELLER_URL=http://localhost:8080/weather X402_GNO_RPC=<RPC URL> node js/buy.mjs
 ```
 
-It registers `ExactGnoScheme` with a stock `@x402/fetch` client and signs with a test mnemonic —
-fund that account first.
+It registers `ExactGnoScheme` with a stock `@x402/fetch` client — that one `register("gno:*", …)`
+call is the only gno-aware line — and signs with the well-known test1 mnemonic. **Fund that account
+first**, and point `X402_GNO_RPC` at the same node the facilitator uses: the buyer reads its account
+sequence from the chain, so this leg needs a real node rather than the unreachable one a 402 tolerates.
+
+The paid loop is the one thing on this page that has not been run end to end. It needs a funded
+account on a live chain, and this module has no in-process node to stand one up.
 
 ## What happens when you pay
 

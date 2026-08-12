@@ -51,10 +51,11 @@ const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 console.error(`buying as ${await wallet.getAddress()}`);
 
 // One call. The refusal and the payment happen inside the client.
-const paid = await fetchWithPayment(sellerURL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-});
+//
+// The resource decides the method and nothing about x402 is method-specific, so a
+// paid GET is the ordinary case — the weather seller is one. Override for a
+// resource that wants something else.
+const paid = await fetchWithPayment(sellerURL, { method: process.env.X402_METHOD ?? "GET" });
 const body = await paid.text();
 
 // A settlement report is expected on success and is what names the payer and the
