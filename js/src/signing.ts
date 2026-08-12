@@ -41,8 +41,17 @@ export async function signForChain(
     throw new Error("x402-gno: transaction names no fee, so nothing can be signed");
   }
 
+  // getProvider is the one wallet accessor that does not check the connection
+  // itself, so an unconnected wallet would fail on the property access below
+  // with a bare TypeError — and an x402 client wraps that into a failure to
+  // create a payment payload, which names neither the wallet nor the connection.
+  const provider = wallet.getProvider();
+  if (provider === undefined) {
+    throw new Error("x402-gno: the wallet has no provider connected, so no sequence can be read");
+  }
+
   const address = await wallet.getAddress();
-  const account = await wallet.getProvider().getAccount(address);
+  const account = await provider.getAccount(address);
 
   const signBytes = stringToUTF8(
     encodeCharacterSet(
