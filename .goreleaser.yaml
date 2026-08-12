@@ -28,6 +28,15 @@ archives:
     formats: [tar.gz]
     name_template: "gnofacilitator_{{ .Os }}_{{ .Arch }}"
 
+# The name is pinned because the release workflow attests this file by path.
+# goreleaser's default embeds the project name and the version
+# (x402_<version>_checksums.txt), so a literal path in the workflow would name a
+# file that never exists — and the attestation step runs after the tag is pushed,
+# where a failure leaves a published release with no provenance and a tag that
+# blocks its own re-run.
+checksum:
+  name_template: "checksums.txt"
+
 # Multi-platform image, manifest stitched automatically. Built with buildx so an
 # amd64 runner emits arm64 too — the Dockerfile only COPYs a prebuilt static
 # binary, so nothing cross-compiles. The release workflow sets up QEMU + buildx
