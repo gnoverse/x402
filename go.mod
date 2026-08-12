@@ -1,4 +1,4 @@
-module github.com/gnoverse/x402/go
+module github.com/gnoverse/x402
 
 go 1.26.5
 

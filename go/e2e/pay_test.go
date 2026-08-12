@@ -81,8 +81,9 @@ func buyerScript(t *testing.T) string {
 	require.NoError(t, err, "the JS buyer is committed, so this path is wrong")
 
 	// buy.mjs imports the mechanism by package name, so the package has to be
-	// installed and built, not merely present in the tree.
-	if _, err := os.Stat(filepath.Join(repo, "js", "dist", "mechanism.mjs")); err != nil {
+	// installed and built, not merely present in the tree. The emit lands in the
+	// repository's dist/, beside the package.json that declares it.
+	if _, err := os.Stat(filepath.Join(repo, "dist", "mechanism.mjs")); err != nil {
 		t.Skipf("the JS mechanism is not built (%v); run `make js`", err)
 	}
 	return buyer

@@ -11,11 +11,7 @@ version: 2
 
 builds:
   - id: gnofacilitator
-    # The repository is laid out by language, so the Go module lives in go/ and
-    # `main` is relative to it. dockerfile paths below stay relative to the
-    # repository root.
-    dir: go
-    main: ./cmd/gnofacilitator
+    main: ./go/cmd/gnofacilitator
     binary: gnofacilitator
     # Static: the image is distroless, which has no libc to link against.
     env: [CGO_ENABLED=0]

@@ -75,8 +75,10 @@ one client pays `gno:test14` and `gno:dev` without reconfiguration — see [js/R
 
 ## What's in here
 
-Laid out by language, mirroring
-[x402-foundation/x402](https://github.com/x402-foundation/x402). `make` targets run from the root.
+Sources are laid out by language, mirroring
+[x402-foundation/x402](https://github.com/x402-foundation/x402). Both manifests — `go.mod` and
+`package.json` — live at the root, so `go test ./...`, `npm test` and every `make` target run from
+here.
 
 | Path | What |
 |------|------|

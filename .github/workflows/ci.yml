@@ -13,20 +13,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with: { go-version: '1.26.5' }
-      # The repository is laid out by language, so every Go step runs in go/.
       - run: go test -short -race ./...
-        working-directory: go
       - run: go vet ./...
-        working-directory: go
-      # go/e2e is a separate module, so go/... never reaches it. Vet it here or
-      # the harness rots unnoticed until someone runs it.
+      # go/e2e is a separate module, so ./... never reaches it. Vet it here or the
+      # harness rots unnoticed until someone runs it.
       - run: go vet ./...
         working-directory: go/e2e
       # Compile-check the network-tagged tests for the same reason.
       - run: go vet -tags=integration ./...
-        working-directory: go
-      - run: gofmt -l -d . | tee /tmp/fmt && test ! -s /tmp/fmt
-        working-directory: go
+      - run: gofmt -l -d go | tee /tmp/fmt && test ! -s /tmp/fmt
 
   js:
     runs-on: ubuntu-latest
@@ -36,13 +31,10 @@ jobs:
       - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
         with: { node-version: '24' }
       - run: npm ci --no-fund --no-audit
-        working-directory: js
       # TypeScript 7 is the native compiler, and `implements SchemeNetworkClient`
       # is what holds the mechanism to the interface @x402/core publishes.
       - run: npm run typecheck
-        working-directory: js
       - run: npm test
-        working-directory: js
 
   # The claim this repo exists to make: a stock x402 client pays a gno seller and
   # the chain agrees. It needs both toolchains and takes seconds, so it runs on

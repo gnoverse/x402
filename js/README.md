@@ -3,7 +3,7 @@
 Pay a gno.land chain with x402. One line on a stock client — no fork, no patch, no upstream change.
 
 > [!NOTE]
-> **Not published to a registry yet.** Build it from this directory (`npm install && npm run build`)
+> **Not published to a registry yet.** Build it from the repository root (`make js`)
 > and reference it by path, or use the buyer in `buy.mjs` as-is. The install below is what it will
 > be, not what it is.
 
@@ -65,6 +65,9 @@ asset that is not `ugnot`, an amount that is not a positive integer, an absent `
 `extra.memo` that is present but not a string.
 
 ## Development
+
+Sources are here in `js/src`; the manifest and the emit are at the repository root, so these run
+from there.
 
 ```sh
 npm run typecheck   # TypeScript 7 (the native compiler)

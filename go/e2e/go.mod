@@ -14,11 +14,11 @@ go 1.26.5
 // Never published, and nothing ever `go get`s it — so a relative replace is the
 // honest way to reach the library under test rather than a version that does not
 // exist yet.
-replace github.com/gnoverse/x402/go => ../
+replace github.com/gnoverse/x402 => ../..
 
 require (
 	github.com/gnolang/gno v0.0.0-20260624072255-1822034ddd17
-	github.com/gnoverse/x402/go v0.0.0
+	github.com/gnoverse/x402 v0.0.0
 	github.com/rogpeppe/go-internal v1.15.0
 	github.com/stretchr/testify v1.11.1
 	github.com/x402-foundation/x402/go/v2 v2.22.0
