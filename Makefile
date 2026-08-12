@@ -21,6 +21,12 @@ NPM ?= npm
 BIN := bin
 FACILITATOR := $(BIN)/gnofacilitator
 
+# A released binary is stamped by goreleaser; a local one says where it came from.
+# Falls back to "dev", which is what the source declares, so the two never
+# disagree about what an unstamped build is called.
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -X main.version=$(VERSION)
+
 .PHONY: all build test test-integration test-e2e js js-test lint fmt clean install help
 
 all: build ## Build everything (default)
@@ -29,7 +35,7 @@ all: build ## Build everything (default)
 # cache already decides what to recompile, and a manual source list goes stale.
 build: ## Build the facilitator into bin/
 	mkdir -p $(BIN)
-	$(GO) build -o $(FACILITATOR) ./cmd/gnofacilitator
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(FACILITATOR) ./cmd/gnofacilitator
 
 test: ## Run the library tests
 	$(GO) test ./...

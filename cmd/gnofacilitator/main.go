@@ -18,6 +18,12 @@ import (
 	"github.com/gnoverse/x402"
 )
 
+// version is stamped at build time with -ldflags "-X main.version=…". A binary
+// that reports "dev" was built without one, which is the honest answer: an
+// operator debugging a settlement needs to know which build refused it, and
+// guessing from a file date is not knowing.
+var version = "dev"
+
 // Server timeouts, chosen to bound a slow or hostile client without
 // interrupting a legitimate verify/settle round trip against the chain.
 const (
@@ -66,7 +72,16 @@ func main() {
 	chainID := flag.String("chain-id", "", "chain id served as network gno:<chain-id> (required)")
 	ratePerSecond := flag.Float64("rate-per-second", x402.DefaultRatePerSecond, "sustained per-peer requests/second on /verify and /settle (0 = default)")
 	rateBurst := flag.Int("rate-burst", x402.DefaultRateBurst, "largest per-peer request spike tolerated on /verify and /settle (0 = default)")
+	showVersion := flag.Bool("version", false, "print the build version and exit")
 	flag.Parse()
+
+	// Answered before the required flags are enforced: asking a binary what it is
+	// must not require knowing how to run it.
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
+
 	if *rpcURL == "" || *chainID == "" {
 		fmt.Fprintln(os.Stderr, "gnofacilitator: -rpc and -chain-id are required")
 		os.Exit(2)
@@ -111,7 +126,8 @@ func main() {
 		IdleTimeout:       idleTimeout,
 	}
 
-	slog.Info("gnofacilitator listening", "addr", *listen, "network", "gno:"+*chainID)
+	slog.Info("gnofacilitator listening",
+		"version", version, "addr", *listen, "network", "gno:"+*chainID)
 	if err := srv.ListenAndServe(); err != nil {
 		slog.Error("serve", "err", err)
 		os.Exit(1)

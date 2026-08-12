@@ -1,0 +1,73 @@
+version: 2
+
+# gnofacilitator is the only releasable artifact here. The library and the JS
+# mechanism are consumed by version, not by download — `go get` reads the git tag
+# and npm has its own registry — so this releases one binary and one image on a
+# plain semver tag. No prefixed tag line, no second component.
+#
+# It is released as BOTH archives and an image on purpose: an operator running a
+# facilitator next to their own node usually wants the binary, and one running it
+# in a cluster wants the image.
+
+builds:
+  - id: gnofacilitator
+    main: ./cmd/gnofacilitator
+    binary: gnofacilitator
+    # Static: the image is distroless, which has no libc to link against.
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    ldflags:
+      # main.version defaults to "dev" in source, so an unstamped build is
+      # recognisable rather than silently claiming a release.
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: gnofacilitator
+    ids: [gnofacilitator]
+    formats: [tar.gz]
+    name_template: "gnofacilitator_{{ .Os }}_{{ .Arch }}"
+
+# Multi-platform image, manifest stitched automatically. Built with buildx so an
+# amd64 runner emits arm64 too — the Dockerfile only COPYs a prebuilt static
+# binary, so nothing cross-compiles. The release workflow sets up QEMU + buildx
+# and logs in to ghcr.io.
+dockers_v2:
+  - id: gnofacilitator
+    ids: [gnofacilitator]
+    dockerfile: docker/gnofacilitator.Dockerfile
+    images:
+      - ghcr.io/gnoverse/gnofacilitator
+    tags:
+      - "{{ .Version }}"
+      - latest
+    platforms: [linux/amd64, linux/arm64]
+    labels:
+      org.opencontainers.image.title: gnofacilitator
+      org.opencontainers.image.description: Keyless x402 facilitator for a gno.land chain
+      org.opencontainers.image.source: https://github.com/gnoverse/x402
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.licenses: Apache-2.0
+
+changelog:
+  use: github
+  # Every group carries its own regexp rather than leaning on a catch-all: anything
+  # unmatched lands in goreleaser's own default group, which is a behaviour worth
+  # not guessing at. Commits that describe the repo rather than the release are
+  # dropped.
+  groups:
+    - title: Added
+      regexp: '^feat(\(.+\))?!?:'
+      order: 0
+    - title: Fixed
+      regexp: '^fix(\(.+\))?!?:'
+      order: 1
+    - title: Changed
+      regexp: '^(refactor|perf)(\(.+\))?!?:'
+      order: 2
+  filters:
+    exclude:
+      - '^chore(\(.+\))?:'
+      - '^docs(\(.+\))?:'
+      - '^test(\(.+\))?:'
