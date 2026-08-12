@@ -15,8 +15,12 @@ const (
 )
 
 // MaxMemoBytes caps extra.memo; a longer memo would bloat the signed tx and every
-// echo of the requirements. gno's own limit is far higher, so this is the scheme's
-// policy rather than the chain's.
+// echo of the requirements. gno's own limit is far higher, so the cap is the
+// scheme's rather than the chain's — and the number is the ecosystem's, not one
+// picked here: the shipped SVM mechanism caps its own extra.memo at the same 256
+// bytes (mechanisms/svm/constants.go), and its spec states the field's purpose in
+// the same terms, attaching a payment reference such as an invoice id for
+// reconciliation without needing a unique deposit address per payer.
 //
 // It is exported because both halves of the mechanism answer for it: the
 // facilitator refuses an over-cap memo on every payment, and the seller has to

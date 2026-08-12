@@ -124,6 +124,17 @@ type sellerOffer struct {
 	Description string          `json:"description"`
 	MimeType    string          `json:"mimeType"`
 	Body        json.RawMessage `json:"body"` // served verbatim to a paying buyer
+
+	// Memo, when set, is published as extra.memo and binds the payment's
+	// transaction memo to it. A buyer that ignores it produces a payment the
+	// facilitator refuses, so a settlement is itself proof the buyer honored it.
+	Memo string `json:"memo"`
+
+	// Status is the status the resource answers with; zero means 200. A status at
+	// or above 400 makes the middleware cancel settlement instead of taking the
+	// payment, which is the guarantee a paid endpoint fronting something fallible
+	// depends on.
+	Status int `json:"status"`
 }
 
 // readSellerOffer decodes the offer file the script names. Unknown fields are
@@ -174,8 +185,18 @@ func sellerCmd(ts *testscript.TestScript, neg bool, args []string) {
 	mux := http.NewServeMux()
 	mux.HandleFunc(offer.Route, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", offer.MimeType)
+		if offer.Status != 0 {
+			w.WriteHeader(offer.Status)
+		}
 		_, _ = w.Write(offer.Body)
 	})
+
+	// extra.memo is omitted entirely rather than sent empty: an absent memo binds
+	// nothing, and publishing "" would bind every payment to the empty memo.
+	var extra map[string]interface{}
+	if offer.Memo != "" {
+		extra = map[string]interface{}{"memo": offer.Memo}
+	}
 
 	handler := nethttpmw.X402Payment(nethttpmw.Config{
 		Routes: x402http.RoutesConfig{
@@ -185,6 +206,7 @@ func sellerCmd(ts *testscript.TestScript, neg bool, args []string) {
 					PayTo:   payTo,
 					Price:   x402.AssetAmount{Asset: offer.Price.Asset, Amount: offer.Price.Amount},
 					Network: network,
+					Extra:   extra,
 				}},
 				Description: offer.Description,
 				MimeType:    offer.MimeType,
