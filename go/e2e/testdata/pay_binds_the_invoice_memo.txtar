@@ -1,0 +1,54 @@
+# A resource server binds the payment to its own invoice reference, and the client
+# honors it.
+#
+# Every payment to this server lands in one address, so the transfer alone does not
+# say which order it settles. The offer therefore names a memo, the client copies it
+# into the transaction it signs, and it travels on chain with the money.
+#
+# extra.memo is not a gno invention. The shipped SVM mechanism defines the same key
+# for the same reason — a seller-defined UTF-8 string carrying a payment reference
+# such as an invoice id, so reconciliation needs no unique deposit address per payer
+# — and caps it at the same 256 bytes. Canton spells its example "invoice-2024-001".
+# Where gno differs is only the carrier: tm2 signs a memo as part of the transaction,
+# so there is no separate instruction to attach.
+#
+# The settlement is the assertion. The facilitator compares the transaction's memo
+# against the one the requirements name and refuses a mismatch, so a payment that
+# settles is proof the client read extra.memo and signed it in. A client that ignored
+# it is answered invalid_exact_gno_payload_memo_mismatch — the same refusal SVM
+# publishes as invalid_exact_solana_payload_memo_mismatch — and nothing is broadcast.
+adduser seller
+
+gnoland start
+
+gnokey query bank/balances/$seller_user_addr
+stdout '1000000000ugnot'
+
+x402facilitator
+x402seller invoice.json $seller_user_addr
+
+exec node $X402_BUYER
+stdout '"status":200'
+
+# The resource was served, so honoring the memo did not cost the client the purchase.
+stdout 'export ready'
+
+# The payment settled: the memo the offer named was in the signed transaction.
+stdout '"transaction":"[0-9a-zA-Z]'
+! stdout 'memo_mismatch'
+
+gnokey query bank/balances/$seller_user_addr
+stdout '1000250000ugnot'
+
+-- invoice.json --
+{
+  "route": "GET /orders/1042/export",
+  "price": { "asset": "ugnot", "amount": "250000" },
+  "description": "Order data export",
+  "mimeType": "application/json",
+  "memo": "inv-2026-08-1042",
+  "body": {
+    "order": 1042,
+    "status": "export ready"
+  }
+}

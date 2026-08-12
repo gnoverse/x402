@@ -1,0 +1,93 @@
+name: CI
+# pull_request (not pull_request_target) runs untrusted fork code under a
+# read-only, secret-less token. Do NOT add any secrets.* to this file: doing so
+# would expose them to fork PRs.
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: '1.26.5' }
+      - run: go test -short -race ./...
+      - run: go vet ./...
+      # go/e2e is a separate module, so ./... never reaches it. Vet it here or the
+      # harness rots unnoticed until someone runs it.
+      - run: go vet ./...
+        working-directory: go/e2e
+      - run: gofmt -l -d go | tee /tmp/fmt && test ! -s /tmp/fmt
+      # A dependency imported directly but recorded as indirect still builds, so
+      # nothing else here would notice the manifest drifting from the imports.
+      - run: go mod tidy -diff
+
+  js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with: { node-version: '24' }
+      - run: npm ci --no-fund --no-audit
+      # TypeScript 7 is the native compiler, and `implements SchemeNetworkClient`
+      # is what holds the mechanism to the interface @x402/core publishes.
+      - run: npm run typecheck
+      - run: npm test
+
+  # The claim this repo exists to make: a stock x402 client pays a gno seller and
+  # the chain agrees. It needs both toolchains and takes seconds, so it runs on
+  # every PR rather than nightly.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: '1.26.5' }
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with: { node-version: '24' }
+      - run: make test-e2e
+
+  # Schema-check the release config and build the whole matrix as a snapshot, so
+  # config rot surfaces on a PR instead of on release day. A snapshot builds the
+  # image but never pushes it.
+  release-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: '1.26.5' }
+      # QEMU + buildx so the snapshot can emit the arm64 image layer on this amd64
+      # runner (the Dockerfile only COPYs a prebuilt binary — no compile).
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          version: '~> v2'
+          args: check
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          version: '~> v2'
+          args: release --snapshot --clean
+      # Guard the release workflow's attestation contract: it resolves the image
+      # digest by filtering artifacts.json on type "Docker Image" plus
+      # .extra.Digest. Assert that shape here so a goreleaser rename breaks a PR
+      # rather than a release. Snapshot tags are arch-suffixed, so match by repo
+      # prefix instead of the exact versioned name.
+      - name: Assert the image digest is extractable
+        env: { REPO: ghcr.io/gnoverse/gnofacilitator }
+        run: |
+          set -euo pipefail
+          digest="$(jq -r --arg repo "$REPO" '
+            [ .[] | select(.type == "Docker Image" and (.name | startswith($repo + ":"))) | .extra.Digest ]
+            | map(select(. != null and . != "")) | .[0] // empty' dist/artifacts.json)"
+          if [ -z "$digest" ]; then
+            echo "::error::no extractable image digest for $REPO — the release attestation would fail"
+            jq -r '.[] | select(.type | test("Docker")) | .type + "  " + .name + "  " + (.extra.Digest // "-")' dist/artifacts.json
+            exit 1
+          fi

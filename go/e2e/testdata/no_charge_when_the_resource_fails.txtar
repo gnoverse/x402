@@ -1,0 +1,53 @@
+# The protected handler fails, so the client is not charged.
+#
+# This is the case for selling access to data you do not own. The resource server
+# resells an upstream provider, the upstream is down, and the server answers 503 —
+# so the payment must not be taken, even though the client already signed and sent
+# one.
+#
+# The flow is what makes that possible. exact uses the authorization flow, verify
+# then resource then settle, and a handler answering 400 or above cancels the
+# settlement rather than completing it: upstream calls that reason handler_failed,
+# and states the guarantee as settling only after the handler returns a successful
+# response. The signed transaction is simply never broadcast, so nothing needs
+# refunding — which is the whole reason the payment is taken last.
+#
+# No official x402 example covers this path; its own coverage is unit tests
+# asserting the cancellation hook fired and that settlement was never called. Those
+# cannot see whether money moved. This can, and the seller's balance is the
+# assertion: it is the only way to tell "not settled" from "settled and reported
+# badly".
+adduser seller
+
+gnoland start
+
+gnokey query bank/balances/$seller_user_addr
+stdout '1000000000ugnot'
+
+x402facilitator
+x402seller outage.json $seller_user_addr
+
+# The client pays: it gets the 402, signs, and retries. The handler then fails.
+exec node $X402_BUYER
+stdout '"status":503'
+
+# No settlement was reported, so there is no transaction to name.
+stdout '"transaction":""'
+
+# And the money did not move. The client keeps its funds and its fee, because the
+# transaction it signed was never broadcast.
+gnokey query bank/balances/$seller_user_addr
+stdout '1000000000ugnot'
+! stdout '1000250000ugnot'
+
+-- outage.json --
+{
+  "route": "GET /forecast",
+  "price": { "asset": "ugnot", "amount": "250000" },
+  "description": "Hourly forecast, resold from an upstream provider",
+  "mimeType": "application/json",
+  "status": 503,
+  "body": {
+    "error": "upstream provider unavailable"
+  }
+}

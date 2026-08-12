@@ -1,0 +1,59 @@
+{
+  "name": "@gnoverse/x402-gno",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The gno payment mechanism for the x402 'exact' scheme. Register it on a stock x402 client and it signs payments for the gno chain an offer names.",
+  "license": "Apache-2.0",
+  "homepage": "https://gno.land/",
+  "//repository": "npm resolves the package page's relative links against this, and the published page is the repository root README rather than js/README.md.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gnoverse/x402.git"
+  },
+  "keywords": [
+    "x402",
+    "gno",
+    "gnoland",
+    "tendermint2",
+    "payments"
+  ],
+  "files": [
+    "js/dist/"
+  ],
+  "//exports": "The subpath is the ecosystem's own grid — @x402/evm publishes ./exact/client, ./exact/server and ./exact/facilitator, so a buyer that already imports one reaches for the same path here. gno's server half is Go, so ./exact/client is the only cell this package fills.",
+  "exports": {
+    "./exact/client": {
+      "types": "./js/dist/client.d.mts",
+      "default": "./js/dist/client.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "//engines": "The floor a CONSUMER needs, not the one this repo builds with: the emit targets ES2023, which Node 20 covers in full, and neither @gnolang runtime dependency declares a constraint of its own. Working on the package needs newer — tsdown wants Node 22.18+ and CI runs 24.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "build": "tsc && tsdown"
+  },
+  "//dependencies": "Versions are exact so a signed payment changes only when a dependency is deliberately bumped. @x402/core is a peer: only its types are used, and a mechanism must not pull in a second copy of the client its consumer already has.",
+  "dependencies": {
+    "@gnolang/gno-js-client": "2.0.3",
+    "@gnolang/tm2-js-client": "2.0.4"
+  },
+  "peerDependencies": {
+    "@x402/core": ">=2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "@x402/core": "2.21.0",
+    "@x402/fetch": "2.21.0",
+    "tsdown": "0.22.14",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}
