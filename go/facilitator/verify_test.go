@@ -140,6 +140,28 @@ func TestVerifyStatic_SubKeyCount(t *testing.T) {
 	assert.Nil(t, tx)
 }
 
+// TestVerifyStatic_ThresholdKeyBelowItsOwnSubKeyCount refuses a threshold key
+// whose subkeys number one, which the subkey cap alone lets through:
+// std.CountSubKeys sums its subkeys and answers 1, the same as an ordinary key.
+//
+// The count is not the only thing wrong with such a key. A threshold of zero is
+// unconstructible through multisig.NewPubKeyMultisigThreshold, which panics on
+// it, but amino decodes the struct whatever its fields say — and the verifier
+// bounds its signature list against that threshold, so a zero one admits a
+// signature list holding nothing while the bit array claims a signature is set.
+// A key shape the chain's own constructor refuses has no business reaching
+// verification, so the cap refuses the type outright.
+func TestVerifyStatic_ThresholdKeyBelowItsOwnSubKeyCount(t *testing.T) {
+	multi := multisig.PubKeyMultisigThreshold{K: 0, PubKeys: []crypto.PubKey{ed25519.GenPrivKey().PubKey()}}
+	require.Equal(t, 1, std.CountSubKeys(multi), "the cap cannot rest on the subkey count for this shape")
+
+	tx, _, reason := VerifyStatic(reqFixture(), SchemePayload{Transaction: txFixture(t, func(tx *std.Tx) {
+		tx.Signatures[0].PubKey = multi
+	})})
+	assert.Equal(t, ReasonSignatureCount, reason)
+	assert.Nil(t, tx)
+}
+
 // TestVerifyStatic_SingleKeyAndOmittedKeyAccepted pins the two shapes the
 // subkey cap must not refuse: an ordinary single key, and no key at all — a
 // signature omits its key when the account already stores one, and

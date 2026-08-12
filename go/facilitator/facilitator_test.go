@@ -14,6 +14,10 @@ import (
 
 	"github.com/gnolang/gno/tm2/pkg/amino"
 	"github.com/gnolang/gno/tm2/pkg/crypto"
+	"github.com/gnolang/gno/tm2/pkg/crypto/ed25519"
+	"github.com/gnolang/gno/tm2/pkg/crypto/multisig"
+	"github.com/gnolang/gno/tm2/pkg/crypto/multisig/bitarray"
+	"github.com/gnolang/gno/tm2/pkg/sdk/bank"
 	"github.com/gnolang/gno/tm2/pkg/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -255,6 +259,53 @@ func TestFacilitator_VerifyRefusesATamperedSignature(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.False(t, resp.IsValid)
 	assert.Equal(t, ReasonSignatureInvalid, resp.InvalidReason)
+}
+
+// TestFacilitator_VerifyRefusesAThresholdKeyWithoutVerifyingIt pins that a
+// crafted threshold key is refused rather than verified, on both endpoints and
+// with no credential of any kind.
+//
+// A threshold of zero passes the verifier's own bounds — it admits a signature
+// list shorter than the bit array's set bits — and the verifier then indexes
+// that list per set bit. Reaching it takes an account storing no key, which is
+// what the bank keeper leaves behind on a first credit to an address, so the
+// precondition is that someone once sent coins to the crafted key's address.
+// Verification must therefore never hand such a key to VerifyBytes at all.
+func TestFacilitator_VerifyRefusesAThresholdKeyWithoutVerifyingIt(t *testing.T) {
+	multi := multisig.PubKeyMultisigThreshold{K: 0, PubKeys: []crypto.PubKey{ed25519.GenPrivKey().PubKey()}}
+	// One set bit over an empty signature list: what the zero threshold admits.
+	bits := bitarray.NewCompactBitArray(1)
+	bits.SetIndex(0, true)
+	sig := amino.MustMarshal(&multisig.Multisignature{BitArray: bits})
+
+	txB64 := txFixture(t, func(tx *std.Tx) {
+		send := tx.Msgs[0].(bank.MsgSend)
+		// The signer is the address the crafted key derives, so the account read
+		// resolves to it and the signature's own key is the one adopted.
+		send.FromAddress = multi.Address()
+		tx.Msgs[0] = send
+		tx.Signatures[0] = std.Signature{PubKey: multi, Signature: sig}
+	})
+	// An account that exists and has never signed: it stores no key, so the ante
+	// adopts the signature's.
+	h := New(&fakeNode{account: accountWithKey(nil, 7, 3)}, "dev").Handler()
+
+	for _, path := range []string{"/verify", "/settle"} {
+		t.Run(path, func(t *testing.T) {
+			rec := facilitatorRequest(t, h, path, reqFixture(), txB64)
+			require.Equal(t, http.StatusOK, rec.Code)
+			var resp struct {
+				IsValid       bool   `json:"isValid"`
+				Success       bool   `json:"success"`
+				InvalidReason string `json:"invalidReason"`
+				ErrorReason   string `json:"errorReason"`
+			}
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+			assert.False(t, resp.IsValid)
+			assert.False(t, resp.Success)
+			assert.Equal(t, ReasonSignatureCount, resp.InvalidReason+resp.ErrorReason)
+		})
+	}
 }
 
 // TestFacilitator_VerifyRefusesAReplayedPayment pins that verification decides
