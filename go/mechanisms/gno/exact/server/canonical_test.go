@@ -98,7 +98,12 @@ func TestTheCanonicalSellerSnippetOffersGno(t *testing.T) {
 	var required struct {
 		X402Version int    `json:"x402Version"`
 		Error       string `json:"error"`
-		Accepts     []struct {
+		Resource    struct {
+			URL         string `json:"url"`
+			Description string `json:"description"`
+			MimeType    string `json:"mimeType"`
+		} `json:"resource"`
+		Accepts []struct {
 			Scheme            string         `json:"scheme"`
 			Network           string         `json:"network"`
 			Asset             string         `json:"asset"`
@@ -111,6 +116,12 @@ func TestTheCanonicalSellerSnippetOffersGno(t *testing.T) {
 	require.NoError(t, json.Unmarshal(body, &required))
 
 	assert.Equal(t, 2, required.X402Version)
+	// The envelope's own keys, published in both READMEs as what a client reads.
+	// The middleware fills them from the route, so they are documented from here
+	// rather than from what a seller hoped it configured.
+	assert.NotEmpty(t, required.Error, "the spec's fixture carries an error string on a 402")
+	assert.Equal(t, "Weather data", required.Resource.Description)
+	assert.Equal(t, "application/json", required.Resource.MimeType)
 	require.Len(t, required.Accepts, 1,
 		"the route offers exactly the one way to pay it listed, but answered %s", body)
 

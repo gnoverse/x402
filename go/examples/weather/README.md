@@ -63,7 +63,12 @@ not in the body:
 ```json
 {
   "x402Version": 2,
-  "resource": { "url": "http://localhost:8080/weather", "description": "Weather data" },
+  "error": "Payment required",
+  "resource": {
+    "url": "http://localhost:8080/weather",
+    "description": "Weather data",
+    "mimeType": "application/json"
+  },
   "accepts": [{
     "scheme": "exact",
     "network": "gno:dev",
@@ -95,8 +100,11 @@ call is the only gno-aware line — and signs with the well-known test1 mnemonic
 first**, and point `X402_GNO_RPC` at the same node the facilitator uses: the buyer reads its account
 sequence from the chain, so this leg needs a real node rather than the unreachable one a 402 tolerates.
 
-The paid loop is the one thing on this page that has not been run end to end. It needs a funded
-account on a live chain, and this module has no in-process node to stand one up.
+The paid loop itself is covered: `go/e2e` runs this exact configuration — the same middleware, the
+same `accepts[]` entry, the same 250000ugnot price, this same `js/buy.mjs` — against an in-process
+node on every pull request, and asserts the seller's balance moved. What has not been run is the
+command sequence on this page: three processes started by hand against a live chain, with a funded
+account.
 
 ## What happens when you pay
 

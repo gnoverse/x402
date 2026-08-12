@@ -5,6 +5,11 @@
   "description": "The gno payment mechanism for the x402 'exact' scheme. Register it on a stock x402 client and it signs payments for the gno chain an offer names.",
   "license": "Apache-2.0",
   "homepage": "https://gno.land/",
+  "//repository": "npm resolves the package page's relative links against this, and the published page is the repository root README rather than js/README.md.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gnoverse/x402.git"
+  },
   "keywords": [
     "x402",
     "gno",

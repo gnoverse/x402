@@ -21,7 +21,7 @@ middleware. This supplies the chain-specific parts:
 >
 > - No gno scheme document is merged upstream yet.
 > - Point it at testnets. Nothing here has been reviewed for real funds.
-> - The client package is not published to a registry — build it from `js/`.
+> - The client package is not published to a registry — build it with `make js` from the repository root.
 
 ## Sell something
 
@@ -50,7 +50,9 @@ carries them there, not in the body:
 
 ```json
 { "x402Version": 2,
-  "resource": { "url": "http://localhost:8080/weather", "description": "Weather data" },
+  "error": "Payment required",
+  "resource": { "url": "http://localhost:8080/weather", "description": "Weather data",
+                "mimeType": "application/json" },
   "accepts": [{
     "scheme": "exact", "network": "gno:dev", "asset": "ugnot", "amount": "250000",
     "payTo": "g1u7y667z64x2h7vc6fmpcprgey4ck233jaww9zq",
