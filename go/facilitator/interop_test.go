@@ -1,4 +1,4 @@
-package x402
+package facilitator
 
 import (
 	"os"

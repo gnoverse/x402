@@ -15,7 +15,7 @@ import (
 	x402http "github.com/x402-foundation/x402/go/v2/http"
 	nethttpmw "github.com/x402-foundation/x402/go/v2/http/nethttp"
 
-	x402gno "github.com/gnoverse/x402/go"
+	"github.com/gnoverse/x402/go/facilitator"
 	gnoexact "github.com/gnoverse/x402/go/mechanisms/gno/exact/server"
 )
 
@@ -24,7 +24,7 @@ import (
 // a method called here means the middleware went somewhere it should not.
 type keylessNode struct{}
 
-func (keylessNode) SignerAccount(context.Context, *std.Tx) (x402gno.SignerAccount, error) {
+func (keylessNode) SignerAccount(context.Context, *std.Tx) (facilitator.SignerAccount, error) {
 	panic("an unpaid request must be answered without reading an account")
 }
 
@@ -47,8 +47,8 @@ func TestTheCanonicalSellerSnippetOffersGno(t *testing.T) {
 	// A facilitator has to be answering /supported before the middleware is built:
 	// the middleware syncs during construction and only warns when it cannot, so a
 	// facilitator started afterwards would leave the route unable to price itself.
-	facilitator := httptest.NewServer(x402gno.NewFacilitator(keylessNode{}, "test14").Handler())
-	t.Cleanup(facilitator.Close)
+	gnofacilitator := httptest.NewServer(facilitator.New(keylessNode{}, "test14").Handler())
+	t.Cleanup(gnofacilitator.Close)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/weather", func(w http.ResponseWriter, _ *http.Request) {
@@ -70,7 +70,7 @@ func TestTheCanonicalSellerSnippetOffersGno(t *testing.T) {
 
 	handler := nethttpmw.X402Payment(nethttpmw.Config{
 		Routes:      routes,
-		Facilitator: x402http.NewHTTPFacilitatorClient(&x402http.FacilitatorConfig{URL: facilitator.URL}),
+		Facilitator: x402http.NewHTTPFacilitatorClient(&x402http.FacilitatorConfig{URL: gnofacilitator.URL}),
 		Schemes: []nethttpmw.SchemeConfig{
 			{Network: "gno:test14", Server: gnoexact.NewExactGnoScheme()},
 		},

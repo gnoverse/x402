@@ -15,10 +15,11 @@
   "files": [
     "dist/"
   ],
+  "//exports": "The subpath is the ecosystem's own grid — @x402/evm publishes ./exact/client, ./exact/server and ./exact/facilitator, so a buyer that already imports one reaches for the same path here. gno's server half is Go, so ./exact/client is the only cell this package fills.",
   "exports": {
-    ".": {
-      "types": "./dist/mechanism.d.mts",
-      "default": "./dist/mechanism.mjs"
+    "./exact/client": {
+      "types": "./dist/client.d.mts",
+      "default": "./dist/client.mjs"
     },
     "./package.json": "./package.json"
   },

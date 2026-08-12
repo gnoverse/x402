@@ -1,4 +1,4 @@
-package x402
+package facilitator
 
 import (
 	"bytes"
@@ -42,7 +42,7 @@ func (c *handClock) advance(d time.Duration) {
 
 // throttledFacilitator builds a facilitator whose throttle is driven by clock.
 func throttledFacilitator(clock *handClock, burst int) http.Handler {
-	return NewFacilitator(&fakeNode{}, "dev", WithRateLimit(RateLimit{
+	return New(&fakeNode{}, "dev", WithRateLimit(RateLimit{
 		PerSecond: DefaultRatePerSecond,
 		Burst:     burst,
 		Now:       clock.now,
@@ -386,7 +386,7 @@ func TestRateLimiter_ConcurrentAllow(t *testing.T) {
 // by omission: Handler hands out a public endpoint, and a caller that passes no
 // option still gets the documented defaults.
 func TestNewFacilitator_ThrottlesByDefault(t *testing.T) {
-	f := NewFacilitator(&fakeNode{}, "dev")
+	f := New(&fakeNode{}, "dev")
 	require.NotNil(t, f.limiter)
 	assert.Equal(t, float64(DefaultRatePerSecond), f.limiter.ratePerSecond)
 	assert.Equal(t, float64(DefaultRateBurst), f.limiter.burst)

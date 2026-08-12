@@ -1,4 +1,4 @@
-package x402
+package facilitator
 
 import (
 	"encoding/base64"
@@ -45,21 +45,19 @@ func decodeSpecHeader(t *testing.T, header string, into any) map[string]json.Raw
 
 // ---- Envelope level: the spec's own fixtures
 
+// TestConformance_SpecPaymentRequiredHeader checks the accepts[] entry the spec
+// publishes against PaymentRequirements, which is half of what a seller relays
+// to /verify and /settle. The 402 that carries it is the canonical middleware's
+// to emit, so only the entry is decoded here.
 func TestConformance_SpecPaymentRequiredHeader(t *testing.T) {
-	var got PaymentRequired
+	var got struct {
+		Accepts []PaymentRequirements `json:"accepts"`
+	}
 	raw := decodeSpecHeader(t, specPaymentRequiredHeader, &got)
 
 	for _, key := range []string{"x402Version", "error", "resource", "accepts"} {
 		assert.Contains(t, raw, key)
 	}
-
-	assert.Equal(t, 2, got.X402Version)
-	assert.Equal(t, "PAYMENT-SIGNATURE header is required", got.Error)
-
-	require.NotNil(t, got.Resource)
-	assert.Equal(t, "https://api.example.com/premium-data", got.Resource.URL)
-	assert.Equal(t, "Access to premium market data", got.Resource.Description)
-	assert.Equal(t, "application/json", got.Resource.MimeType)
 
 	require.Len(t, got.Accepts, 1)
 	accepted := got.Accepts[0]
@@ -134,21 +132,13 @@ func TestConformance_SpecPaymentResponseHeaders(t *testing.T) {
 	})
 }
 
-// TestConformance_HeaderNames pins the three transport header names against the
-// spec's Header Summary table. These are the names the v1/v2 mislabel got wrong.
-func TestConformance_HeaderNames(t *testing.T) {
-	assert.Equal(t, "PAYMENT-REQUIRED", PaymentRequiredHeader)
-	assert.Equal(t, "PAYMENT-SIGNATURE", PaymentHeader)
-	assert.Equal(t, "PAYMENT-RESPONSE", PaymentResponseHeader)
-}
-
 // ---- Scheme level: our own encoder against the structure the spec implies
 
 // TestConformance_GnoPayloadKeySet pins the exact key set and nesting our
 // encoder emits, at every level. A field added or renamed without a matching
 // spec update fails here.
 func TestConformance_GnoPayloadKeySet(t *testing.T) {
-	header, err := EncodePaymentHeader(PaymentPayload{
+	data, err := json.Marshal(PaymentPayload{
 		X402Version: protocolVersion,
 		Accepted: PaymentRequirements{
 			Scheme:            schemeExact,
@@ -161,9 +151,6 @@ func TestConformance_GnoPayloadKeySet(t *testing.T) {
 		},
 		Payload: SchemePayload{Transaction: "dGVzdA=="},
 	})
-	require.NoError(t, err)
-
-	data, err := base64.StdEncoding.DecodeString(header)
 	require.NoError(t, err)
 
 	var envelope map[string]json.RawMessage
@@ -186,27 +173,6 @@ func TestConformance_GnoPayloadKeySet(t *testing.T) {
 	require.NoError(t, json.Unmarshal(accepted["extra"], &extra))
 	assert.ElementsMatch(t, []string{"memo"}, keysOf(extra),
 		"gasWanted and gasFee were never emitted or verified and must stay gone")
-}
-
-// TestConformance_GnoRequiredKeySet pins the 402's key set, including the
-// resource object the spec marks required.
-func TestConformance_GnoRequiredKeySet(t *testing.T) {
-	body, err := json.Marshal(PaymentRequired{
-		X402Version: protocolVersion,
-		Error:       "payment required",
-		Resource:    &ResourceInfo{URL: "/premium"},
-		Accepts:     []PaymentRequirements{reqFixture()},
-	})
-	require.NoError(t, err)
-
-	var top map[string]json.RawMessage
-	require.NoError(t, json.Unmarshal(body, &top))
-	assert.ElementsMatch(t, []string{"x402Version", "error", "resource", "accepts"}, keysOf(top))
-
-	var resource map[string]json.RawMessage
-	require.NoError(t, json.Unmarshal(top["resource"], &resource))
-	assert.ElementsMatch(t, []string{"url"}, keysOf(resource),
-		"description and mimeType are optional and unset here")
 }
 
 func keysOf(m map[string]json.RawMessage) []string {

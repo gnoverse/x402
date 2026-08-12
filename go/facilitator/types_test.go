@@ -1,4 +1,4 @@
-package x402
+package facilitator
 
 import (
 	"encoding/json"
@@ -93,20 +93,6 @@ func TestPaymentRequirements_Memo(t *testing.T) {
 	}
 }
 
-func TestPaymentRequired_JSONFieldNames(t *testing.T) {
-	body := PaymentRequired{
-		X402Version: 2,
-		Error:       "payment required",
-		Resource:    &ResourceInfo{URL: "/premium"},
-		Accepts:     []PaymentRequirements{reqFixture()},
-	}
-	data, err := json.Marshal(body)
-	require.NoError(t, err)
-	for _, field := range []string{`"x402Version"`, `"error"`, `"resource"`, `"url"`, `"accepts"`} {
-		assert.Contains(t, string(data), field)
-	}
-}
-
 func TestSettleResponse_JSONFieldNames(t *testing.T) {
 	resp := SettleResponse{
 		Success:     true,
@@ -160,7 +146,10 @@ func TestSupportedResponse_EmptySetsAreEmptyNotNull(t *testing.T) {
 	}
 }
 
-func TestPaymentHeader_RoundTrip(t *testing.T) {
+// TestPaymentPayload_RoundTrip pins that a payload reaching the facilitator over
+// the settle wire comes back out equal to what a buyer sent, extras and all: the
+// requirements it carries are what verification is decided against.
+func TestPaymentPayload_RoundTrip(t *testing.T) {
 	payload := PaymentPayload{
 		X402Version: 2,
 		Resource:    &ResourceInfo{URL: "/premium", MimeType: "application/json"},
@@ -171,11 +160,11 @@ func TestPaymentHeader_RoundTrip(t *testing.T) {
 		},
 		Payload: SchemePayload{Transaction: "dGVzdA=="},
 	}
-	header, err := EncodePaymentHeader(payload)
+	data, err := json.Marshal(payload)
 	require.NoError(t, err)
 
-	got, err := DecodePaymentHeader(header)
-	require.NoError(t, err)
+	var got PaymentPayload
+	require.NoError(t, json.Unmarshal(data, &got))
 	assert.Equal(t, payload, got)
 }
 
@@ -237,17 +226,10 @@ func TestSchemePayload_ForeignSchemeSurvivesTheHop(t *testing.T) {
 	})
 }
 
-func TestDecodePaymentHeader_RejectsGarbage(t *testing.T) {
-	_, err := DecodePaymentHeader("not base64 !!!")
-	require.Error(t, err)
-	_, err = DecodePaymentHeader("aGVsbG8=") // base64 but not JSON
-	require.Error(t, err)
-}
-
 // TestFacilitatorRequest_CarriesX402Version pins the top-level version on the
 // facilitator wire, alongside the payload's own.
 func TestFacilitatorRequest_CarriesX402Version(t *testing.T) {
-	data, err := json.Marshal(FacilitatorRequest{
+	data, err := json.Marshal(Request{
 		X402Version:         2,
 		PaymentPayload:      PaymentPayload{X402Version: 2, Accepted: reqFixture()},
 		PaymentRequirements: reqFixture(),

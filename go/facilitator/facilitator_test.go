@@ -1,4 +1,4 @@
-package x402
+package facilitator
 
 import (
 	"bytes"
@@ -78,7 +78,7 @@ func signedFixture(t *testing.T, mutate func(*std.Tx)) (txB64 string, account Si
 
 func facilitatorRequestBody(t *testing.T, req PaymentRequirements, txB64 string) []byte {
 	t.Helper()
-	body, err := json.Marshal(FacilitatorRequest{
+	body, err := json.Marshal(Request{
 		PaymentRequirements: req,
 		PaymentPayload: PaymentPayload{
 			X402Version: 2,
@@ -98,7 +98,7 @@ func facilitatorRequest(t *testing.T, handler http.Handler, path string, req Pay
 }
 
 // postFacilitatorBody posts a body verbatim, for the malformed and ambiguous
-// bodies no marshalled FacilitatorRequest can express.
+// bodies no marshalled Request can express.
 func postFacilitatorBody(t *testing.T, handler http.Handler, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
@@ -108,7 +108,7 @@ func postFacilitatorBody(t *testing.T, handler http.Handler, path, body string) 
 
 func TestFacilitator_VerifyValid(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
-	h := NewFacilitator(&fakeNode{account: account}, "dev").Handler()
+	h := New(&fakeNode{account: account}, "dev").Handler()
 	rec := facilitatorRequest(t, h, "/verify", reqFixture(), txB64)
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp VerifyResponse
@@ -118,7 +118,7 @@ func TestFacilitator_VerifyValid(t *testing.T) {
 }
 
 func TestFacilitator_VerifyWrongNetwork(t *testing.T) {
-	h := NewFacilitator(&fakeNode{}, "other-chain").Handler()
+	h := New(&fakeNode{}, "other-chain").Handler()
 	rec := facilitatorRequest(t, h, "/verify", reqFixture(), txFixture(t, nil)) // req says gno:dev
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp VerifyResponse
@@ -132,7 +132,7 @@ func TestFacilitator_VerifyWrongNetwork(t *testing.T) {
 // what tells a refusal apart from a query that never reached it.
 func TestFacilitator_VerifySimulationFailure(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
-	h := NewFacilitator(&fakeNode{account: account, simulateErr: std.ErrSessionExpired("session expired")}, "dev").Handler()
+	h := New(&fakeNode{account: account, simulateErr: std.ErrSessionExpired("session expired")}, "dev").Handler()
 	rec := facilitatorRequest(t, h, "/verify", reqFixture(), txB64)
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp VerifyResponse
@@ -144,7 +144,7 @@ func TestFacilitator_VerifySimulationFailure(t *testing.T) {
 func TestFacilitator_VerifyLogsValidPayment(t *testing.T) {
 	logs := captureLogs(t)
 	txB64, account := signedFixture(t, nil)
-	h := NewFacilitator(&fakeNode{account: account}, "dev").Handler()
+	h := New(&fakeNode{account: account}, "dev").Handler()
 	facilitatorRequest(t, h, "/verify", reqFixture(), txB64)
 
 	record := logRecord(t, logs, "x402 verify: payment valid")
@@ -154,7 +154,7 @@ func TestFacilitator_VerifyLogsValidPayment(t *testing.T) {
 func TestFacilitator_VerifyLogsInvalidPayment(t *testing.T) {
 	t.Run("static rejection has no known payer", func(t *testing.T) {
 		logs := captureLogs(t)
-		h := NewFacilitator(&fakeNode{}, "dev").Handler()
+		h := New(&fakeNode{}, "dev").Handler()
 		facilitatorRequest(t, h, "/verify", reqFixture(), "AAAA")
 
 		record := logRecord(t, logs, "x402 verify: payment invalid")
@@ -165,7 +165,7 @@ func TestFacilitator_VerifyLogsInvalidPayment(t *testing.T) {
 	t.Run("simulation rejection names the payer and the chain error", func(t *testing.T) {
 		logs := captureLogs(t)
 		txB64, account := signedFixture(t, nil)
-		h := NewFacilitator(&fakeNode{account: account, simulateErr: std.ErrSessionExpired("session expired")}, "dev").Handler()
+		h := New(&fakeNode{account: account, simulateErr: std.ErrSessionExpired("session expired")}, "dev").Handler()
 		facilitatorRequest(t, h, "/verify", reqFixture(), txB64)
 
 		record := logRecord(t, logs, "x402 verify: payment invalid")
@@ -179,7 +179,7 @@ func TestFacilitator_VerifyLogsInvalidPayment(t *testing.T) {
 func TestFacilitator_SettleLogsInvalidPaymentUnderTheSettlePhase(t *testing.T) {
 	t.Run("static rejection", func(t *testing.T) {
 		logs := captureLogs(t)
-		h := NewFacilitator(&fakeNode{}, "dev").Handler()
+		h := New(&fakeNode{}, "dev").Handler()
 		facilitatorRequest(t, h, "/settle", reqFixture(), "AAAA")
 
 		record := logRecord(t, logs, "x402 settle: payment invalid")
@@ -191,7 +191,7 @@ func TestFacilitator_SettleLogsInvalidPaymentUnderTheSettlePhase(t *testing.T) {
 	t.Run("simulation rejection", func(t *testing.T) {
 		logs := captureLogs(t)
 		txB64, account := signedFixture(t, nil)
-		h := NewFacilitator(&fakeNode{account: account, simulateErr: std.ErrInsufficientFunds("insufficient funds")}, "dev").Handler()
+		h := New(&fakeNode{account: account, simulateErr: std.ErrInsufficientFunds("insufficient funds")}, "dev").Handler()
 		facilitatorRequest(t, h, "/settle", reqFixture(), txB64)
 
 		record := logRecord(t, logs, "x402 settle: payment invalid")
@@ -205,7 +205,7 @@ func TestFacilitator_SettleLogsInvalidPaymentUnderTheSettlePhase(t *testing.T) {
 func TestFacilitator_SettleBroadcasts(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
 	node := &fakeNode{hash: "abc123", height: 42, account: account}
-	h := NewFacilitator(node, "dev").Handler()
+	h := New(node, "dev").Handler()
 	rec := facilitatorRequest(t, h, "/settle", reqFixture(), txB64)
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp SettleResponse
@@ -218,7 +218,7 @@ func TestFacilitator_SettleBroadcasts(t *testing.T) {
 
 func TestFacilitator_SettleRejectsInvalidWithoutBroadcast(t *testing.T) {
 	node := &fakeNode{}
-	h := NewFacilitator(node, "dev").Handler()
+	h := New(node, "dev").Handler()
 	rec := facilitatorRequest(t, h, "/settle", reqFixture(), "AAAA")
 	var resp SettleResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
@@ -230,7 +230,7 @@ func TestFacilitator_SettleRejectsInvalidWithoutBroadcast(t *testing.T) {
 func TestFacilitator_SettleBroadcastFailure(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
 	node := &fakeNode{broadcastErr: errors.New("connection refused"), account: account}
-	h := NewFacilitator(node, "dev").Handler()
+	h := New(node, "dev").Handler()
 	rec := facilitatorRequest(t, h, "/settle", reqFixture(), txB64)
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp SettleResponse
@@ -247,7 +247,7 @@ func TestFacilitator_SettleBroadcastFailure(t *testing.T) {
 // leaving a payer to discover at settle that the payment was never spendable.
 func TestFacilitator_VerifyRefusesATamperedSignature(t *testing.T) {
 	txB64, account := signedFixture(t, func(tx *std.Tx) { tx.Signatures[0].Signature[0] ^= 0xff })
-	h := NewFacilitator(&fakeNode{account: account}, "dev").Handler()
+	h := New(&fakeNode{account: account}, "dev").Handler()
 
 	rec := facilitatorRequest(t, h, "/verify", reqFixture(), txB64)
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -265,7 +265,7 @@ func TestFacilitator_VerifyRefusesAReplayedPayment(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
 	// The chain consumed the sequence this payment signed over.
 	consumed := accountWithKey(account.pubKey(), account.number(), account.sequence()+1)
-	h := NewFacilitator(&fakeNode{account: consumed}, "dev").Handler()
+	h := New(&fakeNode{account: consumed}, "dev").Handler()
 
 	rec := facilitatorRequest(t, h, "/verify", reqFixture(), txB64)
 	var resp VerifyResponse
@@ -283,14 +283,14 @@ func TestFacilitator_AccountRejectionCostsNoSimulation(t *testing.T) {
 	t.Run("a refused signature never reaches simulation", func(t *testing.T) {
 		txB64, account := signedFixture(t, func(tx *std.Tx) { tx.Signatures[0].Signature[0] ^= 0xff })
 		node := &fakeNode{account: account}
-		facilitatorRequest(t, NewFacilitator(node, "dev").Handler(), "/verify", reqFixture(), txB64)
+		facilitatorRequest(t, New(node, "dev").Handler(), "/verify", reqFixture(), txB64)
 		assert.Zero(t, node.simulates)
 	})
 
 	t.Run("an accepted signature reaches it", func(t *testing.T) {
 		txB64, account := signedFixture(t, nil)
 		node := &fakeNode{account: account}
-		facilitatorRequest(t, NewFacilitator(node, "dev").Handler(), "/verify", reqFixture(), txB64)
+		facilitatorRequest(t, New(node, "dev").Handler(), "/verify", reqFixture(), txB64)
 		assert.Equal(t, 1, node.simulates)
 	})
 }
@@ -320,7 +320,7 @@ func TestFacilitator_SettleRefusesWhatTheAccountRefuses(t *testing.T) {
 			txB64, account := signedFixture(t, tc.mutate)
 			node := &fakeNode{account: accountWithKey(
 				account.pubKey(), account.number(), account.sequence()+tc.spent)}
-			rec := facilitatorRequest(t, NewFacilitator(node, "dev").Handler(), "/settle", reqFixture(), txB64)
+			rec := facilitatorRequest(t, New(node, "dev").Handler(), "/settle", reqFixture(), txB64)
 
 			var resp SettleResponse
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
@@ -341,7 +341,7 @@ func TestFacilitator_AbsentAccountIsAPaymentVerdict(t *testing.T) {
 	logs := captureLogs(t)
 	txB64, account := signedFixture(t, nil)
 	node := &fakeNode{account: account, accountErr: std.ErrUnknownAddress("unknown address: g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5")}
-	rec := facilitatorRequest(t, NewFacilitator(node, "dev").Handler(), "/verify", reqFixture(), txB64)
+	rec := facilitatorRequest(t, New(node, "dev").Handler(), "/verify", reqFixture(), txB64)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp VerifyResponse
@@ -372,7 +372,7 @@ func TestFacilitator_UnreachableChainIsNotAPaymentVerdict(t *testing.T) {
 		logs := captureLogs(t)
 		txB64, account := signedFixture(t, nil)
 		node := &fakeNode{account: account, accountErr: unreachable}
-		rec := facilitatorRequest(t, NewFacilitator(node, "dev").Handler(), "/verify", reqFixture(), txB64)
+		rec := facilitatorRequest(t, New(node, "dev").Handler(), "/verify", reqFixture(), txB64)
 
 		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		assert.NotContains(t, rec.Body.String(), "isValid", "a 503 carries no verdict to believe")
@@ -387,7 +387,7 @@ func TestFacilitator_UnreachableChainIsNotAPaymentVerdict(t *testing.T) {
 		logs := captureLogs(t)
 		txB64, account := signedFixture(t, nil)
 		node := &fakeNode{account: account, accountErr: unreachable}
-		rec := facilitatorRequest(t, NewFacilitator(node, "dev").Handler(), "/settle", reqFixture(), txB64)
+		rec := facilitatorRequest(t, New(node, "dev").Handler(), "/settle", reqFixture(), txB64)
 
 		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		assert.Zero(t, node.broadcasts, "a payment the facilitator could not check must not be broadcast")
@@ -402,7 +402,7 @@ func TestFacilitator_UnreachableChainIsNotAPaymentVerdict(t *testing.T) {
 func TestFacilitator_UnreachableChainAtSimulationIsNotAPaymentVerdict(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
 	node := &fakeNode{account: account, simulateErr: errors.New("unable to perform ABCI query: connection refused")}
-	rec := facilitatorRequest(t, NewFacilitator(node, "dev").Handler(), "/settle", reqFixture(), txB64)
+	rec := facilitatorRequest(t, New(node, "dev").Handler(), "/settle", reqFixture(), txB64)
 
 	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 	assert.Equal(t, 1, node.simulates)
@@ -413,7 +413,7 @@ func TestFacilitator_UnreachableChainAtSimulationIsNotAPaymentVerdict(t *testing
 // signers are answered as empty rather than omitted: this facilitator is
 // keyless, and "no signers" is a property worth stating.
 func TestFacilitator_Supported(t *testing.T) {
-	h := NewFacilitator(&fakeNode{}, "topaz-1").Handler()
+	h := New(&fakeNode{}, "topaz-1").Handler()
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/supported", nil))
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -434,7 +434,7 @@ func TestFacilitator_Supported(t *testing.T) {
 
 // postFacilitatorRequest settles an arbitrary request body, for the cases the
 // facilitatorRequest helper's well-formed shape cannot express.
-func postFacilitatorRequest(t *testing.T, handler http.Handler, path string, fr FacilitatorRequest) *httptest.ResponseRecorder {
+func postFacilitatorRequest(t *testing.T, handler http.Handler, path string, fr Request) *httptest.ResponseRecorder {
 	t.Helper()
 	body, err := json.Marshal(fr)
 	require.NoError(t, err)
@@ -450,9 +450,9 @@ func TestFacilitator_RejectsUnsupportedVersion(t *testing.T) {
 	for _, version := range []int{0, 1, 3, 99} {
 		t.Run(strconv.Itoa(version), func(t *testing.T) {
 			node := &fakeNode{}
-			h := NewFacilitator(node, "dev").Handler()
+			h := New(node, "dev").Handler()
 			req := reqFixture()
-			rec := postFacilitatorRequest(t, h, "/settle", FacilitatorRequest{
+			rec := postFacilitatorRequest(t, h, "/settle", Request{
 				PaymentPayload: PaymentPayload{
 					X402Version: version,
 					Accepted:    req,
@@ -475,9 +475,9 @@ func TestFacilitator_RejectsUnsupportedVersion(t *testing.T) {
 // request's own must not be rejected for it.
 func TestFacilitator_IgnoresAbsentTopLevelVersion(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
-	h := NewFacilitator(&fakeNode{account: account}, "dev").Handler()
+	h := New(&fakeNode{account: account}, "dev").Handler()
 	req := reqFixture()
-	rec := postFacilitatorRequest(t, h, "/verify", FacilitatorRequest{
+	rec := postFacilitatorRequest(t, h, "/verify", Request{
 		PaymentPayload: PaymentPayload{
 			X402Version: 2,
 			Accepted:    req,
@@ -497,7 +497,7 @@ func TestFacilitator_RejectsUnsupportedScheme(t *testing.T) {
 	for _, scheme := range []string{"upto", "", "EXACT", "permit"} {
 		t.Run(scheme, func(t *testing.T) {
 			node := &fakeNode{}
-			h := NewFacilitator(node, "dev").Handler()
+			h := New(node, "dev").Handler()
 			req := reqFixture()
 			req.Scheme = scheme
 			rec := facilitatorRequest(t, h, "/settle", req, txFixture(t, nil))
@@ -525,13 +525,13 @@ func TestFacilitator_RejectsAcceptedMismatch(t *testing.T) {
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
 			node := &fakeNode{}
-			h := NewFacilitator(node, "dev").Handler()
+			h := New(node, "dev").Handler()
 
 			served := reqFixture()
 			claimed := reqFixture()
 			mutate(&claimed)
 
-			rec := postFacilitatorRequest(t, h, "/settle", FacilitatorRequest{
+			rec := postFacilitatorRequest(t, h, "/settle", Request{
 				PaymentPayload: PaymentPayload{
 					X402Version: 2,
 					Accepted:    claimed,
@@ -553,7 +553,7 @@ func TestFacilitator_RejectsAcceptedMismatch(t *testing.T) {
 // client that echoes the offer it was given, extra keys and all.
 func TestFacilitator_AcceptsMatchingAccepted(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
-	h := NewFacilitator(&fakeNode{account: account}, "dev").Handler()
+	h := New(&fakeNode{account: account}, "dev").Handler()
 	served := reqFixture()
 	served.MaxTimeoutSeconds = 60
 
@@ -561,7 +561,7 @@ func TestFacilitator_AcceptsMatchingAccepted(t *testing.T) {
 	echoed.MaxTimeoutSeconds = 120                              // advisory, not part of the offer's identity
 	echoed.Extra = map[string]any{"unknown": "echoed verbatim"} // ditto
 
-	rec := postFacilitatorRequest(t, h, "/verify", FacilitatorRequest{
+	rec := postFacilitatorRequest(t, h, "/verify", Request{
 		PaymentPayload: PaymentPayload{
 			X402Version: 2,
 			Accepted:    echoed,
@@ -598,7 +598,7 @@ func TestFacilitator_LogsWhichRequirementsMemoFailed(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			logs := captureLogs(t)
 			node := &fakeNode{}
-			h := NewFacilitator(node, "dev").Handler()
+			h := New(node, "dev").Handler()
 
 			req := reqFixture()
 			req.Extra = tc.extra
@@ -620,7 +620,7 @@ func TestFacilitator_LogsWhichRequirementsMemoFailed(t *testing.T) {
 }
 
 func TestFacilitator_RejectsMalformedBody(t *testing.T) {
-	h := NewFacilitator(&fakeNode{}, "dev").Handler()
+	h := New(&fakeNode{}, "dev").Handler()
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/verify", bytes.NewReader([]byte("not json"))))
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -632,7 +632,7 @@ func TestFacilitator_RejectsMalformedBody(t *testing.T) {
 const decodeMarker = "987654321987654321987654321987654321"
 
 func TestFacilitator_MalformedBodyRejectionEchoesNothing(t *testing.T) {
-	h := NewFacilitator(&fakeNode{}, "dev").Handler()
+	h := New(&fakeNode{}, "dev").Handler()
 	rec := postFacilitatorBody(t, h, "/verify", `{"x402Version":`+decodeMarker+`}`)
 
 	require.Equal(t, http.StatusBadRequest, rec.Code)
@@ -644,7 +644,7 @@ func TestFacilitator_MalformedBodyRejectionEchoesNothing(t *testing.T) {
 
 func TestFacilitator_MalformedBodyIsLoggedWithoutEchoingIt(t *testing.T) {
 	logs := captureLogs(t)
-	h := NewFacilitator(&fakeNode{}, "dev").Handler()
+	h := New(&fakeNode{}, "dev").Handler()
 	postFacilitatorBody(t, h, "/verify", `{"x402Version":`+decodeMarker+`}`)
 
 	record := logRecord(t, logs, "x402: reject request body")
@@ -668,7 +668,7 @@ func TestFacilitator_RejectsTrailingContent(t *testing.T) {
 				t.Run(endpoint, func(t *testing.T) {
 					logs := captureLogs(t)
 					node := &fakeNode{}
-					h := NewFacilitator(node, "dev").Handler()
+					h := New(node, "dev").Handler()
 					body := string(facilitatorRequestBody(t, reqFixture(), txFixture(t, nil))) + suffix
 
 					rec := postFacilitatorBody(t, h, "/"+endpoint, body)
@@ -690,7 +690,7 @@ func TestFacilitator_RejectsTrailingContent(t *testing.T) {
 // refused, so the ambiguity check must reject only content outside the object.
 func TestFacilitator_AcceptsUnknownBodyFields(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
-	h := NewFacilitator(&fakeNode{account: account}, "dev").Handler()
+	h := New(&fakeNode{account: account}, "dev").Handler()
 
 	var fields map[string]json.RawMessage
 	require.NoError(t, json.Unmarshal(facilitatorRequestBody(t, reqFixture(), txB64), &fields))

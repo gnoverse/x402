@@ -64,7 +64,12 @@ node_modules: package.json
 	$(NPM) install --no-fund --no-audit
 	touch $@
 
-dist: node_modules tsconfig.json tsdown.config.ts $(wildcard js/src/*.ts)
+# Both levels are listed because Make's $(wildcard) does not recurse, and the
+# sources sit one directory deep: js/src/exact/ mirrors the scheme/role subpath
+# the package publishes.
+TS_SOURCES := $(wildcard js/src/*.ts) $(wildcard js/src/exact/*.ts)
+
+dist: node_modules tsconfig.json tsdown.config.ts $(TS_SOURCES)
 	$(NPM) run build
 	touch $@
 

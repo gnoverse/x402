@@ -6,7 +6,7 @@ import { defineConfig } from "tsdown";
 // Dependencies and peers stay external: bundling them would ship a second copy of
 // the wallet, and of the x402 client the consumer already has.
 export default defineConfig({
-  entry: ["js/src/mechanism.ts"],
+  entry: ["js/src/exact/client.ts"],
   format: ["esm"],
   dts: true,
   clean: true,

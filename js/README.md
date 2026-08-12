@@ -14,7 +14,7 @@ npm install @gnoverse/x402-gno
 ```js
 import { x402Client } from "@x402/core/client";
 import { wrapFetchWithPayment } from "@x402/fetch";
-import { ExactGnoScheme } from "@gnoverse/x402-gno";
+import { ExactGnoScheme } from "@gnoverse/x402-gno/exact/client";
 
 const client = new x402Client();
 client.register("gno:*", new ExactGnoScheme(wallet)); // ← the only gno-aware line
@@ -31,6 +31,10 @@ required: a gno sequence is sequential, so only the chain knows the next one.
 `ExactGnoScheme` implements `SchemeNetworkClient` from `@x402/core` — a scheme name plus one method.
 It does nothing else: no HTTP, no 402 handling, no broadcasting. The client library owns the
 protocol, the facilitator owns settlement, and this owns only the chain-specific step between them.
+
+The subpath is the ecosystem's grid: `@x402/evm` publishes `./exact/client`, `./exact/server` and
+`./exact/facilitator`, so a buyer that already imports one reaches the same way for this. gno's
+server and facilitator halves are Go, so `./exact/client` is the only cell this package fills.
 
 Its payload is one field, `transaction`: base64 of a fully signed, unbroadcast `std.Tx` carrying a
 single `bank.MsgSend`.
@@ -66,8 +70,8 @@ asset that is not `ugnot`, an amount that is not a positive integer, an absent `
 
 ## Development
 
-Sources are here in `js/src`; the manifest and the emit are at the repository root, so these run
-from there.
+Sources are here in `js/src`, laid out by the subpath they publish; the manifest and the emit are at
+the repository root, so these run from there.
 
 ```sh
 npm run typecheck   # TypeScript 7 (the native compiler)

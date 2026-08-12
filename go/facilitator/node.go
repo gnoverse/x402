@@ -1,27 +1,20 @@
-package x402
+package facilitator
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
 
 	gnoclient "github.com/gnolang/gno/gno.land/pkg/gnoclient"
-	ctypes "github.com/gnolang/gno/tm2/pkg/bft/rpc/core/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
 )
 
-// NewGnoclientNode adapts a gnoclient.Client to the chain access this package
-// needs: the Node a facilitator settles through, and the Confirmer a seller
-// reads. It holds no mutable state beyond the client handle, so one instance is
-// safe to share across concurrent handler goroutines — the same pattern
-// internal/chain.Real uses for its *gnoclient.Client. The client needs no
-// signer: neither role signs, they relay and read already-signed transactions.
-//
-// The concrete type is returned so one adapter can serve both interfaces; which
-// powers a caller receives is decided by the field it assigns this to, and a
-// seller's Confirmer cannot broadcast.
+// NewGnoclientNode adapts a gnoclient.Client to the chain access a facilitator
+// settles through. It holds no mutable state beyond the client handle, so one
+// instance is safe to share across concurrent handler goroutines. The client
+// needs no signer: a facilitator does not sign, it relays transactions the payer
+// already signed.
 func NewGnoclientNode(cli *gnoclient.Client) *GnoclientNode {
 	return &GnoclientNode{cli: cli}
 }
@@ -32,10 +25,7 @@ type GnoclientNode struct {
 	cli *gnoclient.Client
 }
 
-var (
-	_ Node      = (*GnoclientNode)(nil)
-	_ Confirmer = (*GnoclientNode)(nil)
-)
+var _ Node = (*GnoclientNode)(nil)
 
 // SignerAccount resolves the account gno's auth ante verifies this
 // transaction's signature against: the session account the signature names when
@@ -93,52 +83,6 @@ func signerAccountOf(acc std.Account) SignerAccount {
 func (n *GnoclientNode) Simulate(tx *std.Tx) error {
 	_, err := n.cli.Simulate(tx)
 	return err
-}
-
-// ConfirmTx reads the chain's own record for a transaction hash. Unlike the
-// account queries above, this one does honor the context: RPCClient.Tx takes it
-// and passes it down.
-//
-// Every failure reports as an error rather than as NotCommitted, including a
-// hash the chain holds no result for. tm2 offers no way to separate them: the
-// node answers a missing result with state.NoTxResultForHashError, but the
-// JSON-RPC layer flattens every handler error into one internal-error code whose
-// prose is the only difference, and a delivery decision must not rest on an
-// upstream error string. Neither answer may be served on, so the distinction
-// buys nothing.
-func (n *GnoclientNode) ConfirmTx(ctx context.Context, hash []byte) (Confirmation, error) {
-	// The RPC client is reached directly rather than through a gnoclient
-	// method, so the check gnoclient makes for its own calls is made here: a
-	// missing client must refuse the lookup, not panic inside a payment path.
-	if n.cli.RPCClient == nil {
-		return NotCommitted, gnoclient.ErrMissingRPCClient
-	}
-	res, err := n.cli.RPCClient.Tx(ctx, hash)
-	if err != nil {
-		return NotCommitted, fmt.Errorf("query transaction: %w", err)
-	}
-	return confirmationOf(hash, res)
-}
-
-// confirmationOf reads a lookup result as a confirmation for the hash that was
-// asked about.
-//
-// The hash is re-checked against the answer because the whole point of deriving it
-// was to bind the lookup to the payment: a result carrying some other
-// transaction's hash decides nothing about this one, and taking it as a verdict
-// would serve on a stranger's delivered send. An honest node echoes what it was
-// asked; nothing about serving a payment should depend on that.
-func confirmationOf(want []byte, res *ctypes.ResultTx) (Confirmation, error) {
-	switch {
-	case res == nil:
-		return NotCommitted, errors.New("query transaction: the node returned no result")
-	case !bytes.Equal(res.Hash, want):
-		return NotCommitted, fmt.Errorf("query transaction: the node answered for %x, not %x", res.Hash, want)
-	case res.TxResult.IsErr():
-		return DeliveryFailed, nil
-	default:
-		return Delivered, nil
-	}
 }
 
 // NodeChainID is the chain id the node reports for itself.

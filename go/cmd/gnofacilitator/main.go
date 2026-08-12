@@ -15,7 +15,7 @@ import (
 	gnoclient "github.com/gnolang/gno/gno.land/pkg/gnoclient"
 	rpcclient "github.com/gnolang/gno/tm2/pkg/bft/rpc/client"
 
-	"github.com/gnoverse/x402/go"
+	"github.com/gnoverse/x402/go/facilitator"
 )
 
 // version is stamped at build time with -ldflags "-X main.version=…". A binary
@@ -49,7 +49,7 @@ const (
 
 // nodeChainID asks the node which chain it serves, retrying a node that is not
 // answering yet. The last error is returned once the window is spent.
-func nodeChainID(node *x402.GnoclientNode) (string, error) {
+func nodeChainID(node *facilitator.GnoclientNode) (string, error) {
 	deadline := time.Now().UTC().Add(chainIDCheckWindow)
 	for attempt := 0; ; attempt++ {
 		reported, err := node.NodeChainID(context.Background())
@@ -70,8 +70,8 @@ func main() {
 	listen := flag.String("listen", ":8402", "HTTP listen address")
 	rpcURL := flag.String("rpc", "", "gno chain RPC URL (required)")
 	chainID := flag.String("chain-id", "", "chain id served as network gno:<chain-id> (required)")
-	ratePerSecond := flag.Float64("rate-per-second", x402.DefaultRatePerSecond, "sustained per-peer requests/second on /verify and /settle (0 = default)")
-	rateBurst := flag.Int("rate-burst", x402.DefaultRateBurst, "largest per-peer request spike tolerated on /verify and /settle (0 = default)")
+	ratePerSecond := flag.Float64("rate-per-second", facilitator.DefaultRatePerSecond, "sustained per-peer requests/second on /verify and /settle (0 = default)")
+	rateBurst := flag.Int("rate-burst", facilitator.DefaultRateBurst, "largest per-peer request spike tolerated on /verify and /settle (0 = default)")
 	showVersion := flag.Bool("version", false, "print the build version and exit")
 	flag.Parse()
 
@@ -96,7 +96,7 @@ func main() {
 		slog.Error("rpc client", "err", err)
 		os.Exit(1)
 	}
-	node := x402.NewGnoclientNode(&gnoclient.Client{RPCClient: rpc})
+	node := facilitator.NewGnoclientNode(&gnoclient.Client{RPCClient: rpc})
 
 	// -chain-id and -rpc are configured separately, and a disagreement is
 	// undetectable from a payment: every signature would be verified against the
@@ -114,8 +114,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	f := x402.NewFacilitator(node, *chainID,
-		x402.WithRateLimit(x402.RateLimit{PerSecond: *ratePerSecond, Burst: *rateBurst}))
+	f := facilitator.New(node, *chainID,
+		facilitator.WithRateLimit(facilitator.RateLimit{PerSecond: *ratePerSecond, Burst: *rateBurst}))
 
 	srv := &http.Server{
 		Addr:              *listen,

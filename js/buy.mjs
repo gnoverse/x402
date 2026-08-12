@@ -14,7 +14,7 @@ import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@
 // Imported by package name, not by path: this buyer goes through the same
 // entrypoint a stranger installing the package would, so a broken exports map
 // fails here rather than after publishing.
-import { ExactGnoScheme } from "@gnoverse/x402-gno";
+import { ExactGnoScheme } from "@gnoverse/x402-gno/exact/client";
 
 const PAYMENT_RESPONSE_HEADER = "PAYMENT-RESPONSE";
 

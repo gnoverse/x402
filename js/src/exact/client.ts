@@ -17,7 +17,7 @@ import type {
   SchemeNetworkClient,
 } from "@x402/core/types";
 
-import { signForChain } from "./signing.js";
+import { signForChain } from "../signing.js";
 
 const NAMESPACE = "gno";
 const ASSET = "ugnot";

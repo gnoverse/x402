@@ -27,7 +27,7 @@ import (
 	x402http "github.com/x402-foundation/x402/go/v2/http"
 	nethttpmw "github.com/x402-foundation/x402/go/v2/http/nethttp"
 
-	x402gno "github.com/gnoverse/x402/go"
+	"github.com/gnoverse/x402/go/facilitator"
 	gnoexact "github.com/gnoverse/x402/go/mechanisms/gno/exact/server"
 )
 
@@ -83,7 +83,7 @@ func buyerScript(t *testing.T) string {
 	// buy.mjs imports the mechanism by package name, so the package has to be
 	// installed and built, not merely present in the tree. The emit lands in the
 	// repository's dist/, beside the package.json that declares it.
-	if _, err := os.Stat(filepath.Join(repo, "dist", "mechanism.mjs")); err != nil {
+	if _, err := os.Stat(filepath.Join(repo, "dist", "client.mjs")); err != nil {
 		t.Skipf("the JS mechanism is not built (%v); run `make js`", err)
 	}
 	return buyer
@@ -104,8 +104,8 @@ func facilitatorCmd(ts *testscript.TestScript, neg bool, args []string) {
 	rpc, err := rpcclient.NewHTTPClient(httpURL(rpcAddr))
 	ts.Check(err)
 
-	node := x402gno.NewGnoclientNode(&gnoclient.Client{RPCClient: rpc})
-	server := httptest.NewServer(x402gno.NewFacilitator(node, chainID).Handler())
+	node := facilitator.NewGnoclientNode(&gnoclient.Client{RPCClient: rpc})
+	server := httptest.NewServer(facilitator.New(node, chainID).Handler())
 	ts.Defer(server.Close)
 
 	ts.Setenv("FACILITATOR_URL", server.URL)

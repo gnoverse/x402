@@ -1,4 +1,11 @@
-package x402
+// Package facilitator serves the x402 facilitator API — /verify, /settle and
+// /supported — for one gno chain, for the "exact" scheme (spec: x402 v2).
+//
+// It holds no key. A payment's payload is a fully signed, unbroadcast bank/send
+// transaction; this verifies it offline and against the signer's on-chain
+// account, then relays it. It can therefore move funds nowhere the payer did not
+// already sign for.
+package facilitator
 
 import (
 	"context"
@@ -27,47 +34,47 @@ type Node interface {
 	Broadcast(tx *std.Tx) (hash string, height int64, err error)
 }
 
-// FacilitatorRequest is the body of POST /verify and POST /settle. A request
-// that omits the top-level X402Version asserts no version; the payload's own
-// version is the one verification enforces.
-type FacilitatorRequest struct {
+// Request is the body of POST /verify and POST /settle. A request that omits
+// the top-level X402Version asserts no version; the payload's own version is the
+// one verification enforces.
+type Request struct {
 	X402Version         int                 `json:"x402Version,omitempty"`
 	PaymentPayload      PaymentPayload      `json:"paymentPayload"`
 	PaymentRequirements PaymentRequirements `json:"paymentRequirements"`
 }
 
-// Facilitator serves the x402 facilitator API for one gno chain.
-type Facilitator struct {
+// Server serves the x402 facilitator API for one gno chain.
+type Server struct {
 	node    Node
 	chainID string
 	limiter *rateLimiter
 }
 
-// Option adjusts a Facilitator at construction.
-type Option func(*Facilitator)
+// Option adjusts a Server at construction.
+type Option func(*Server)
 
 // WithRateLimit replaces the default per-remote-address throttle on /verify and
 // /settle. Zero fields keep their defaults.
 func WithRateLimit(rl RateLimit) Option {
-	return func(f *Facilitator) { f.limiter = newRateLimiter(rl) }
+	return func(f *Server) { f.limiter = newRateLimiter(rl) }
 }
 
-// NewFacilitator wires the facilitator for one chain-id (the CAIP-2
-// reference: network "gno:<chainID>"). The chain-touching endpoints are
-// throttled at the default rate unless WithRateLimit says otherwise.
-func NewFacilitator(node Node, chainID string, opts ...Option) *Facilitator {
-	f := &Facilitator{node: node, chainID: chainID, limiter: newRateLimiter(RateLimit{})}
+// New wires the facilitator for one chain-id (the CAIP-2 reference: network
+// "gno:<chainID>"). The chain-touching endpoints are throttled at the default
+// rate unless WithRateLimit says otherwise.
+func New(node Node, chainID string, opts ...Option) *Server {
+	f := &Server{node: node, chainID: chainID, limiter: newRateLimiter(RateLimit{})}
 	for _, opt := range opts {
 		opt(f)
 	}
 	return f
 }
 
-func (f *Facilitator) network() string { return "gno:" + f.chainID }
+func (f *Server) network() string { return "gno:" + f.chainID }
 
 // Handler returns the facilitator HTTP routes. Both endpoints that reach the
 // chain are throttled; /supported answers from a constant and is not.
-func (f *Facilitator) Handler() http.Handler {
+func (f *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("POST /verify", f.throttled(f.handleVerify))
 	mux.Handle("POST /settle", f.throttled(f.handleSettle))
@@ -80,7 +87,7 @@ func (f *Facilitator) Handler() http.Handler {
 // read before it can be refused — the signer's account, plus a simulation on top
 // once the signature checks out — so an unthrottled endpoint lets a caller with
 // no key at all spend the node's capacity at will.
-func (f *Facilitator) throttled(next http.HandlerFunc) http.Handler {
+func (f *Server) throttled(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !f.limiter.allow(peerAddress(r)) {
 			rejectRateLimited(w)
@@ -138,7 +145,7 @@ func refusePayment(payer, reason string, cause error) paymentCheck {
 // point the transaction decodes; every rejection before that leaves it empty.
 // Logging is left to the calling handler, which knows the phase the rejection
 // belongs to.
-func (f *Facilitator) check(ctx context.Context, req FacilitatorRequest) paymentCheck {
+func (f *Server) check(ctx context.Context, req Request) paymentCheck {
 	// The payload's own version is the one enforced; a request that omits the
 	// top-level version asserts nothing about it.
 	if req.PaymentPayload.X402Version != protocolVersion {
@@ -285,8 +292,8 @@ func rejectNoVerdict(w http.ResponseWriter, phase, payer string, cause error) {
 	http.Error(w, "the payment could not be checked against the chain", http.StatusServiceUnavailable)
 }
 
-func (f *Facilitator) handleVerify(w http.ResponseWriter, r *http.Request) {
-	req, ok := decodeFacilitatorRequest(w, r)
+func (f *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
+	req, ok := decodeRequest(w, r)
 	if !ok {
 		return
 	}
@@ -304,8 +311,8 @@ func (f *Facilitator) handleVerify(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, VerifyResponse{IsValid: true, Payer: check.payer})
 }
 
-func (f *Facilitator) handleSettle(w http.ResponseWriter, r *http.Request) {
-	req, ok := decodeFacilitatorRequest(w, r)
+func (f *Server) handleSettle(w http.ResponseWriter, r *http.Request) {
+	req, ok := decodeRequest(w, r)
 	if !ok {
 		return
 	}
@@ -329,7 +336,7 @@ func (f *Facilitator) handleSettle(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, SettleResponse{Success: true, Transaction: hash, Network: f.network(), Payer: check.payer})
 }
 
-func (f *Facilitator) handleSupported(w http.ResponseWriter, _ *http.Request) {
+func (f *Server) handleSupported(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, SupportedResponse{
 		Kinds:      []SupportedKind{{X402Version: protocolVersion, Scheme: schemeExact, Network: f.network()}},
 		Extensions: []string{},
@@ -337,14 +344,14 @@ func (f *Facilitator) handleSupported(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-// decodeFacilitatorRequest reads the request body both endpoints take, capped
+// decodeRequest reads the request body both endpoints take, capped
 // at 1 MiB.
-func decodeFacilitatorRequest(w http.ResponseWriter, r *http.Request) (FacilitatorRequest, bool) {
-	var req FacilitatorRequest
+func decodeRequest(w http.ResponseWriter, r *http.Request) (Request, bool) {
+	var req Request
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err := decoder.Decode(&req); err != nil {
 		rejectRequestBody(w, "malformed_body")
-		return FacilitatorRequest{}, false
+		return Request{}, false
 	}
 	// Decode reads the first JSON value and stops, so trailing content would be
 	// dropped in silence: two readers of one body could then disagree about which
@@ -352,7 +359,7 @@ func decodeFacilitatorRequest(w http.ResponseWriter, r *http.Request) (Facilitat
 	// the protocol requires a facilitator to tolerate what it does not know.
 	if err := decoder.Decode(new(json.RawMessage)); !errors.Is(err, io.EOF) {
 		rejectRequestBody(w, "trailing_content")
-		return FacilitatorRequest{}, false
+		return Request{}, false
 	}
 	return req, true
 }
