@@ -305,6 +305,76 @@ func TestFacilitator_VerifyRefusesATamperedSignature(t *testing.T) {
 	assert.Equal(t, ReasonSignatureInvalid, resp.InvalidReason)
 }
 
+// TestFacilitator_VerifyRefusesAPayloadAcceptingADifferentOffer pins that the
+// whole offer is compared, not the three fields that name a price.
+//
+// The scheme and the network are checked against the requirements, never against
+// the payload's own accepted object, so a payload could agree about the price
+// while naming another scheme or another chain. Upstream compares all five fields
+// in its own matchers, and the signed transaction pins only recipient, amount and
+// chain-id — so nothing mis-settles, but the facilitator would be asserting
+// agreement about an offer the payload contradicts.
+func TestFacilitator_VerifyRefusesAPayloadAcceptingADifferentOffer(t *testing.T) {
+	txB64, account := signedFixture(t, nil)
+
+	for name, accepted := range map[string]PaymentRequirements{
+		"another scheme":  {Scheme: "upto", Network: "gno:dev", Amount: "250000", Asset: "ugnot", PayTo: reqFixture().PayTo},
+		"another network": {Scheme: "exact", Network: "eip155:8453", Amount: "250000", Asset: "ugnot", PayTo: reqFixture().PayTo},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body, err := json.Marshal(Request{
+				PaymentRequirements: reqFixture(),
+				PaymentPayload: PaymentPayload{
+					X402Version: 2,
+					Accepted:    accepted,
+					Payload:     SchemePayload{Transaction: txB64},
+				},
+			})
+			require.NoError(t, err)
+
+			h := New(&fakeNode{account: account}, "dev").Handler()
+			rec := postFacilitatorBody(t, h, "/verify", string(body))
+			require.Equal(t, http.StatusOK, rec.Code)
+			var resp VerifyResponse
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+			assert.False(t, resp.IsValid)
+			assert.Equal(t, ReasonInvalidPayload, resp.InvalidReason)
+		})
+	}
+}
+
+// TestFacilitator_SettleRefusalNamesThePayer pins that a refusal reports who the
+// payment came from once verification decoded it. The broadcast-failure answer
+// beside it already does, and the spec's own failure fixture carries a payer — a
+// seller reading only the refusal would otherwise have no idea whose payment it
+// was.
+func TestFacilitator_SettleRefusalNamesThePayer(t *testing.T) {
+	txB64, account := signedFixture(t, func(tx *std.Tx) { tx.Signatures[0].Signature[0] ^= 0xff })
+	h := New(&fakeNode{account: account}, "dev").Handler()
+
+	rec := facilitatorRequest(t, h, "/settle", reqFixture(), txB64)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp SettleResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.False(t, resp.Success)
+	assert.Equal(t, ReasonSignatureInvalid, resp.ErrorReason)
+	assert.Equal(t, "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5", resp.Payer)
+}
+
+// TestFacilitator_SettleRefusalBeforeDecodingNamesNoPayer is the other half: a
+// payload refused before the transaction decoded establishes no payer, and
+// inventing one would name an address nothing verified.
+func TestFacilitator_SettleRefusalBeforeDecodingNamesNoPayer(t *testing.T) {
+	h := New(&fakeNode{}, "dev").Handler()
+
+	rec := facilitatorRequest(t, h, "/settle", reqFixture(), "AAAA")
+	var resp SettleResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.False(t, resp.Success)
+	assert.Equal(t, ReasonMalformedTransaction, resp.ErrorReason)
+	assert.Empty(t, resp.Payer)
+}
+
 // TestFacilitator_VerifyRefusesAThresholdKeyWithoutVerifyingIt pins that a
 // crafted threshold key is refused rather than verified, on both endpoints and
 // with no credential of any kind.

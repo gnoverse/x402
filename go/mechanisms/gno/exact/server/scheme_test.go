@@ -69,6 +69,32 @@ func TestParsePriceRejectsAnUnpayableAmount(t *testing.T) {
 	}
 }
 
+// TestParsePriceRejectsAPriceTheChainCannotParse covers the prices a whole-number
+// check accepts and the chain's coin grammar does not.
+//
+// A price that reaches the requirements is the string the buyer's payment is
+// matched against, and the facilitator parses it with std.ParseCoins. Anything
+// that parse refuses publishes a route no payment can satisfy — and the refusal
+// arrives as an amount mismatch, which blames the payer for the seller's typo. So
+// the seller's own grammar has to be the chain's.
+func TestParsePriceRejectsAPriceTheChainCannotParse(t *testing.T) {
+	for name, price := range map[string]x402.Price{
+		// The denomination is lower-case only.
+		"upper-case denomination": x402.AssetAmount{Asset: "UGNOT", Amount: "250000"},
+		// And at least three characters long.
+		"denomination too short": x402.AssetAmount{Asset: "gn", Amount: "250000"},
+		// The amount is digits, with no sign — which ParseInt accepts.
+		"signed amount": x402.AssetAmount{Asset: "ugnot", Amount: "+250000"},
+		// A denomination holding a space cannot round-trip through one coin string.
+		"denomination with a space": x402.AssetAmount{Asset: "u gnot", Amount: "250000"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewExactGnoScheme().ParsePrice(price, "gno:dev")
+			assert.Error(t, err)
+		})
+	}
+}
+
 // ugnot is indivisible, so a fractional amount is not a small payment — it is a
 // price the chain cannot charge.
 func TestParsePriceRejectsAFractionalAmount(t *testing.T) {

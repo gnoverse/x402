@@ -182,6 +182,34 @@ func TestVerifyStatic_SingleKeyAndOmittedKeyAccepted(t *testing.T) {
 	}
 }
 
+// TestValidChainID pins the rule the network name rests on. A network is
+// "gno:<chain-id>" built by concatenation, and CAIP-2 names exactly two
+// colon-separated parts — so a chain id carrying one produces a network string
+// that reads as three. Upstream's own parser refuses it and the JS buyer returns
+// null for it, which means every payment for such a facilitator is refused with
+// no indication that the configuration is what is wrong.
+func TestValidChainID(t *testing.T) {
+	valid := []string{"dev", "test14", "portal-loop", "staging.gno.land"}
+	for _, chainID := range valid {
+		t.Run(chainID, func(t *testing.T) {
+			assert.NoError(t, ValidChainID(chainID))
+		})
+	}
+
+	invalid := map[string]string{
+		"empty":            "",
+		"a colon":          "test:14",
+		"a leading colon":  ":dev",
+		"a trailing colon": "dev:",
+		"only a colon":     ":",
+	}
+	for name, chainID := range invalid {
+		t.Run(name, func(t *testing.T) {
+			assert.Error(t, ValidChainID(chainID))
+		})
+	}
+}
+
 func TestVerifyStatic_ValidTx(t *testing.T) {
 	tx, payer, reason := VerifyStatic(reqFixture(), SchemePayload{Transaction: txFixture(t, nil)})
 	assert.Empty(t, reason)

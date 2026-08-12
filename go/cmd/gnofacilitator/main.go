@@ -83,11 +83,18 @@ func main() {
 	}
 
 	if *rpcURL == "" || *chainID == "" {
-		fmt.Fprintln(os.Stderr, "gnofacilitator: -rpc and -chain-id are required")
+		slog.Error("-rpc and -chain-id are required")
+		os.Exit(2)
+	}
+	// The network this serves is "gno:" + the flag, so a chain id the CAIP-2 form
+	// cannot carry has to be refused here: every payment would be refused instead,
+	// and none of those refusals would name the flag.
+	if err := facilitator.ValidChainID(*chainID); err != nil {
+		slog.Error("-chain-id cannot be published as a network name", "err", err)
 		os.Exit(2)
 	}
 	if *ratePerSecond < 0 || *rateBurst < 0 {
-		fmt.Fprintln(os.Stderr, "gnofacilitator: -rate-per-second and -rate-burst must not be negative")
+		slog.Error("-rate-per-second and -rate-burst must not be negative")
 		os.Exit(2)
 	}
 

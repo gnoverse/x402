@@ -9,8 +9,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 
+	"github.com/gnolang/gno/tm2/pkg/std"
 	x402 "github.com/x402-foundation/x402/go/v2"
 	"github.com/x402-foundation/x402/go/v2/types"
 )
@@ -81,6 +81,14 @@ func assetAmountFromMap(m map[string]interface{}) (x402.AssetAmount, error) {
 // checkPayable refuses a price the chain could not charge. Amounts are whole
 // numbers of the denomination's smallest unit, which is what a gno coin holds, so
 // a fractional or out-of-range amount is not a small price but an unchargeable one.
+//
+// The check is the chain's own coin parse rather than a whole-number test, because
+// the published amount and asset are concatenated into one coin string and matched
+// against the buyer's payment that way. A price that parse refuses is a route no
+// payment can satisfy, and the refusal reaches the buyer as an amount mismatch —
+// a payload-blaming code for a price the seller wrote. The grammar is narrower
+// than a whole number in both halves: a denomination is lower-case and at least
+// three characters, and an amount carries no sign.
 func checkPayable(amount x402.AssetAmount) error {
 	if amount.Asset == "" {
 		return errors.New(
@@ -90,12 +98,18 @@ func checkPayable(amount x402.AssetAmount) error {
 		return errors.New("x402: gno price names no amount")
 	}
 
-	units, err := strconv.ParseInt(amount.Amount, 10, 64)
+	coins, err := std.ParseCoins(amount.Amount + amount.Asset)
 	if err != nil {
-		return fmt.Errorf("x402: gno price %q is not a whole number of %s: %w",
+		return fmt.Errorf("x402: gno price %q %s is not a coin the chain can charge: %w",
 			amount.Amount, amount.Asset, err)
 	}
-	if units <= 0 {
+	// One price is one coin. A denomination carrying a separator would parse into
+	// several, and publish a price naming more than the amount beside it.
+	if len(coins) != 1 {
+		return fmt.Errorf("x402: gno price %q %s names %d coins, want one",
+			amount.Amount, amount.Asset, len(coins))
+	}
+	if !coins[0].IsPositive() {
 		return fmt.Errorf("x402: gno price %q %s is not something a buyer can pay",
 			amount.Amount, amount.Asset)
 	}

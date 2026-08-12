@@ -11,9 +11,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	abci "github.com/gnolang/gno/tm2/pkg/bft/abci/types"
 	"github.com/gnolang/gno/tm2/pkg/std"
@@ -59,9 +61,33 @@ func WithRateLimit(rl RateLimit) Option {
 	return func(f *Server) { f.limiter = newRateLimiter(rl) }
 }
 
+// ValidChainID reports whether a chain id can be published as the reference half
+// of this facilitator's network name.
+//
+// The name is built by concatenation, and a CAIP-2 identifier names exactly two
+// colon-separated parts, so a chain id carrying a colon yields a network string
+// that reads as three. Nothing downstream recovers from that: upstream's parser
+// refuses it and the JS buyer reads no chain from it, so every payment is refused
+// without anything naming the configuration as the cause. It is checked where a
+// chain id enters the process rather than per request, because it cannot change
+// while the process runs.
+func ValidChainID(chainID string) error {
+	if chainID == "" {
+		return errors.New("chain id is empty")
+	}
+	if strings.Contains(chainID, ":") {
+		return fmt.Errorf("chain id %q contains a colon, which would make the network name %q read as three CAIP-2 parts",
+			chainID, "gno:"+chainID)
+	}
+	return nil
+}
+
 // New wires the facilitator for one chain-id (the CAIP-2 reference: network
 // "gno:<chainID>"). The chain-touching endpoints are throttled at the default
 // rate unless WithRateLimit says otherwise.
+//
+// The chain id is expected to satisfy ValidChainID; the command checks it as it
+// parses the flag, before anything is served.
 func New(node Node, chainID string, opts ...Option) *Server {
 	f := &Server{node: node, chainID: chainID, limiter: newRateLimiter(RateLimit{})}
 	for _, opt := range opts {
@@ -245,16 +271,25 @@ func chainRefused(err error) bool {
 }
 
 // acceptsSameOffer reports whether the payload's accepted object names the same
-// offer as the requirements it answers. Only the three fields that define the
-// offer are compared: maxTimeoutSeconds is advisory and extra may legitimately
-// carry keys either side does not know.
+// offer as the requirements it answers. maxTimeoutSeconds is left out because it
+// is advisory, and extra because either side may legitimately carry keys the
+// other does not know; the five fields that identify the offer are all compared,
+// which is what upstream's own matchers do.
 //
-// The signed transaction pins recipient and amount, so a disagreement here
-// cannot redirect funds — it means the client and the resource server priced the
-// resource differently, which must be reported rather than silently resolved in
-// the server's favor.
+// The scheme and the network are among them even though the requirements' copies
+// were already checked, because those checks say nothing about the payload's. A
+// payload agreeing about the price while naming another scheme or another chain
+// describes a different offer, and the mismatch has to be reported rather than
+// read past.
+//
+// The signed transaction pins recipient, amount and chain-id, so a disagreement
+// here cannot redirect funds — it means the client and the resource server
+// understood the offer differently, which must be reported rather than silently
+// resolved in the server's favor.
 func acceptsSameOffer(accepted, required PaymentRequirements) bool {
-	return accepted.PayTo == required.PayTo &&
+	return accepted.Scheme == required.Scheme &&
+		accepted.Network == required.Network &&
+		accepted.PayTo == required.PayTo &&
 		accepted.Amount == required.Amount &&
 		accepted.Asset == required.Asset
 }
@@ -323,7 +358,10 @@ func (f *Server) handleSettle(w http.ResponseWriter, r *http.Request) {
 		return
 	case paymentRefused:
 		slog.Info("x402 settle: payment invalid", rejectionFields(check.payer, check.reason, check.cause)...)
-		writeJSON(w, SettleResponse{Success: false, Network: f.network(), ErrorReason: check.reason})
+		// The payer is reported whenever verification decoded one: it is omitempty,
+		// so a refusal before the transaction decoded still names nobody, and the
+		// spec's own failure fixture carries the key.
+		writeJSON(w, SettleResponse{Success: false, Network: f.network(), Payer: check.payer, ErrorReason: check.reason})
 		return
 	}
 	hash, height, err := f.node.Broadcast(check.tx)
