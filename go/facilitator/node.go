@@ -110,10 +110,20 @@ func (n *GnoclientNode) NodeChainID(ctx context.Context) (string, error) {
 // Broadcast reports a failed CheckTx or DeliverTx as an error:
 // gnoclient.BroadcastTxCommit already wraps both into its returned error, so
 // no separate result inspection is needed here.
+//
+// The error is returned untouched, for the same reason Simulate's is: only the
+// chain's own abci.Error makes it a verdict on the transaction, and chainRefused
+// reads that off the type.
+//
+// A result travels with it when there is one. Upstream answers the CheckTx and
+// DeliverTx paths with both, and a delivery the chain committed and then aborted
+// charged the payer its fee — so that transaction's hash is a real record, and
+// the only one an operator can reconcile the charge against. A transport failure
+// carries no result and leaves nothing to report.
 func (n *GnoclientNode) Broadcast(tx *std.Tx) (string, int64, error) {
 	res, err := n.cli.BroadcastTxCommit(tx)
-	if err != nil {
+	if res == nil {
 		return "", 0, err
 	}
-	return hex.EncodeToString(res.Hash), res.Height, nil
+	return hex.EncodeToString(res.Hash), res.Height, err
 }

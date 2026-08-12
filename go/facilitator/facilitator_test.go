@@ -231,9 +231,12 @@ func TestFacilitator_SettleRejectsInvalidWithoutBroadcast(t *testing.T) {
 	assert.Equal(t, 0, node.broadcasts)
 }
 
+// TestFacilitator_SettleBroadcastFailure covers a broadcast the chain itself
+// refused. The node reports every refusal it decides as an ABCI error, and only
+// that makes the failed payment a verdict this endpoint may publish.
 func TestFacilitator_SettleBroadcastFailure(t *testing.T) {
 	txB64, account := signedFixture(t, nil)
-	node := &fakeNode{broadcastErr: errors.New("connection refused"), account: account}
+	node := &fakeNode{broadcastErr: std.ErrSessionExpired("session expired"), account: account}
 	h := New(node, "dev").Handler()
 	rec := facilitatorRequest(t, h, "/settle", reqFixture(), txB64)
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -243,6 +246,47 @@ func TestFacilitator_SettleBroadcastFailure(t *testing.T) {
 	assert.Equal(t, ReasonBroadcastFailed, resp.ErrorReason)
 	assert.Equal(t, "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5", resp.Payer)
 	assert.Equal(t, 1, node.broadcasts)
+}
+
+// TestFacilitator_SettleBroadcastUnreachableReportsNoVerdict pins the answer for
+// a broadcast that never reached the chain.
+//
+// Such a failure is not a refusal. Upstream errors a broadcast both when CheckTx
+// rejected the transaction and when it timed out waiting for the transaction to
+// commit — and on the timeout the transaction is already in the mempool and will
+// commit. Nothing at this layer separates the two beyond the chain's own
+// abci.Error, so answering success:false would tell the seller a payment failed
+// while the payer's funds move anyway, and the seller discards the response the
+// payer paid for. 503 states what is actually known, and a client retries it.
+func TestFacilitator_SettleBroadcastUnreachableReportsNoVerdict(t *testing.T) {
+	txB64, account := signedFixture(t, nil)
+	node := &fakeNode{broadcastErr: errors.New("connection refused"), account: account}
+	h := New(node, "dev").Handler()
+
+	rec := facilitatorRequest(t, h, "/settle", reqFixture(), txB64)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.NotContains(t, rec.Body.String(), ReasonBroadcastFailed, "no reason code names an unknown outcome")
+	assert.Equal(t, 1, node.broadcasts)
+}
+
+// TestFacilitator_SettleLogsTheTxOfAnAbortedDelivery pins the operator's record
+// for a delivery the chain committed and then refused: such a transaction is on
+// chain and charged the payer its fee, so its hash must reach the log even
+// though the wire answer carries an empty transaction.
+func TestFacilitator_SettleLogsTheTxOfAnAbortedDelivery(t *testing.T) {
+	logs := captureLogs(t)
+	txB64, account := signedFixture(t, nil)
+	node := &fakeNode{hash: "abc123", height: 42, broadcastErr: std.ErrSessionExpired("session expired"), account: account}
+	h := New(node, "dev").Handler()
+
+	rec := facilitatorRequest(t, h, "/settle", reqFixture(), txB64)
+	var resp SettleResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Empty(t, resp.Transaction, "the spec's failed settlement carries an empty transaction")
+
+	record := logRecord(t, logs, "x402 settle: broadcast failed")
+	assert.Equal(t, "abc123", record["tx"])
+	assert.Equal(t, "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5", record["payer"])
 }
 
 // TestFacilitator_VerifyRefusesATamperedSignature pins that verification decides

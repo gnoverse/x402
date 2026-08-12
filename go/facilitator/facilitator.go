@@ -328,7 +328,23 @@ func (f *Server) handleSettle(w http.ResponseWriter, r *http.Request) {
 	}
 	hash, height, err := f.node.Broadcast(check.tx)
 	if err != nil {
-		slog.Error("x402 settle: broadcast failed", "payer", check.payer, "err", err)
+		// A broadcast that never reached the chain settles nothing and refuses
+		// nothing. Upstream errors this call both for a transaction CheckTx
+		// rejected and for one it timed out waiting to commit — and on the
+		// timeout the transaction is already in the mempool and will commit. Only
+		// the chain's own abci.Error separates the two, so without one there is no
+		// verdict to publish: answering success:false would tell the seller the
+		// payment failed while the payer's funds move anyway, and the seller
+		// discards the response the payer paid for.
+		if !chainRefused(err) {
+			rejectNoVerdict(w, "x402 settle", check.payer, err)
+			return
+		}
+		// A delivery the chain committed and then aborted charged the payer its
+		// fee, so its hash is a real record even though the answer carries an
+		// empty transaction. It reaches the operator's log, which is where the
+		// charge can be reconciled.
+		slog.Error("x402 settle: broadcast failed", "payer", check.payer, "tx", hash, "err", err)
 		writeJSON(w, SettleResponse{Success: false, Network: f.network(), Payer: check.payer, ErrorReason: ReasonBroadcastFailed})
 		return
 	}
