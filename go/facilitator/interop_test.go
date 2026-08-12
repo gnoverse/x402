@@ -46,16 +46,21 @@ func interopRequirements() PaymentRequirements {
 func interopPayload(t *testing.T) SchemePayload {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("testdata", interopFixture))
-	require.NoError(t, err, "interop fixture missing — regenerate with go generate ./x402")
+	require.NoError(t, err, "interop fixture missing — regenerate with go generate ./go/facilitator")
 	return SchemePayload{Transaction: strings.TrimSpace(string(raw))}
 }
 
 // TestVerifyStaticAcceptsJSSignedPayment is the cross-SDK wire check: a payment
 // this package never encoded, produced by the JS SDK a foreign client would
-// use, must decode and satisfy every static rule. It fails if the two SDKs
-// disagree on the tx encoding, the message's registered type name, address
-// derivation, or coin representation — the whole surface a foreign buyer
-// touches, and the one thing no amount of Go-side fixture testing can prove.
+// use, must decode and satisfy every static rule. It covers the tx encoding, the
+// message's registered type name, address derivation and coin representation —
+// the whole surface a foreign buyer touches, and the one thing no amount of
+// Go-side fixture testing can prove.
+//
+// The sample is frozen, so what this detects is the Go side moving away from
+// bytes a JS buyer once produced. It cannot notice the JS SDK moving: that
+// direction is caught by make test-e2e, which signs with the installed client
+// against a real node.
 func TestVerifyStaticAcceptsJSSignedPayment(t *testing.T) {
 	tx, payer, reason := VerifyStatic(interopRequirements(), interopPayload(t))
 

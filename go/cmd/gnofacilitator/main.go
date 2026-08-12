@@ -33,7 +33,7 @@ const (
 	idleTimeout       = 60 * time.Second
 )
 
-// How long the startup chain-id check waits for a node to answer.
+// How long the startup chain-id check waits for a node to answer, in total.
 //
 // A facilitator is normally started alongside its node — the same compose file,
 // the same unit, the same container — so the first query usually lands before the
@@ -42,14 +42,49 @@ const (
 // anything. Retrying briefly makes it real without holding startup hostage to a
 // node that is genuinely down, which is reported and served through (every request
 // then answers 503, which is the honest answer anyway).
+//
+// The window bounds the whole check, including a single query that never returns.
 const (
 	chainIDCheckWindow   = 10 * time.Second
 	chainIDCheckInterval = 500 * time.Millisecond
 )
 
-// nodeChainID asks the node which chain it serves, retrying a node that is not
-// answering yet. The last error is returned once the window is spent.
+// nodeChainID asks the node which chain it serves, within chainIDCheckWindow
+// whatever the node does.
+//
+// The bound is a watchdog rather than a context deadline because a deadline would
+// not be honored: tm2's RPC transport builds its request with http.NewRequest,
+// gives its http.Client no timeout, and discards the context in its own dialer. A
+// node that accepts the connection and then never answers would otherwise hold
+// startup open forever — before anything is listening, which is the one state this
+// check must not be able to cause.
+//
+// The query is left running if the watchdog fires. It answers into a buffered
+// channel nobody reads, so it cannot block on the send, and the process is either
+// serving by then or on its way out.
 func nodeChainID(node *facilitator.GnoclientNode) (string, error) {
+	type answer struct {
+		chainID string
+		err     error
+	}
+	answered := make(chan answer, 1)
+	go func() {
+		chainID, err := retryChainID(node)
+		answered <- answer{chainID: chainID, err: err}
+	}()
+
+	select {
+	case got := <-answered:
+		return got.chainID, got.err
+	case <-time.After(chainIDCheckWindow):
+		return "", fmt.Errorf("the node did not answer the chain-id query within %s", chainIDCheckWindow)
+	}
+}
+
+// retryChainID asks until the node answers or the window is spent, so a
+// facilitator started beside its own node does not warn on the first query and
+// then never compare anything. The last error is returned once the window is spent.
+func retryChainID(node *facilitator.GnoclientNode) (string, error) {
 	deadline := time.Now().UTC().Add(chainIDCheckWindow)
 	for attempt := 0; ; attempt++ {
 		reported, err := node.NodeChainID(context.Background())

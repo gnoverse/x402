@@ -6,7 +6,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-readonly HERE="${BASH_SOURCE[0]%/*}"
+# %/* strips the last path segment, which yields nothing to cd to when the script
+# was named without one — `bash regen.sh` from this directory. cd to the script's
+# own directory whichever way it was invoked.
+HERE="${BASH_SOURCE[0]%/*}"
+[[ "${HERE}" == "${BASH_SOURCE[0]}" ]] && HERE="."
+readonly HERE
 cd "${HERE}"
 
 if ! command -v npm > /dev/null; then
@@ -15,4 +20,12 @@ if ! command -v npm > /dev/null; then
 fi
 
 npm install --silent --no-fund --no-audit
-node sign.mjs > ../gnojs_signed_send.b64
+
+# Written aside and moved into place: redirecting straight at the fixture
+# truncates it before node runs, so a failure here would leave an empty fixture
+# where a committed one was.
+readonly FIXTURE="../gnojs_signed_send.b64"
+tmp="$(mktemp)"
+trap 'rm -f "${tmp}"' EXIT
+node sign.mjs > "${tmp}"
+mv "${tmp}" "${FIXTURE}"

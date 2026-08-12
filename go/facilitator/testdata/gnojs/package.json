@@ -2,7 +2,7 @@
   "name": "gnojs-interop-fixture",
   "private": true,
   "type": "module",
-  "description": "Signs the interop fixture with the official gno JS SDK. Versions are exact so a regenerated fixture changes only when the SDK is deliberately bumped.",
+  "description": "Signs the interop fixture with the official gno JS SDK. The two SDK versions are pinned, but their own dependencies are not and no lockfile is committed, so a regenerated fixture can differ from the committed one without either SDK being bumped. The fixture is a frozen wire sample for a Go test that needs no toolchain; live drift against the versions this repository builds with is what make test-e2e detects, by paying a real node with a real client.",
   "dependencies": {
     "@gnolang/gno-js-client": "2.0.3",
     "@gnolang/tm2-js-client": "2.0.4"

@@ -19,8 +19,13 @@ const (
 // sweepInterval is how often allow forgets the buckets it can. The map is keyed
 // on addresses the callers choose, so without a sweep it is a memory exhaustion
 // vector of its own; with one, what it holds is bounded by the distinct
-// addresses seen within a single interval. The sweep runs no more often than
-// this, so a flood cannot turn it into a full-map scan per request.
+// addresses seen within a single interval.
+//
+// Time is not the only trigger — reaching defaultMaxBuckets forces a sweep too,
+// so while the table sits at the cap a flood does pay a full scan per request.
+// That is the intended trade at the cap, and it does not persist: a bucket refills
+// in about a tenth of a second idle, so a swept-full table empties as soon as the
+// flood pauses.
 const sweepInterval = time.Minute
 
 // defaultMaxBuckets caps how many peers the table tracks at once, so the size a
