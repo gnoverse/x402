@@ -1,6 +1,11 @@
 # A stock x402 client pays a gno seller for an ordinary HTTP resource, and the
 # chain agrees that it happened.
 #
+# Everything the scenario decides is in this file: what is sold, what it costs,
+# and what the buyer gets back. x402seller reads seller.json and stands that up
+# behind the ecosystem's own middleware; the network is the chain the harness
+# starts, so the offer's network is not a knob here.
+#
 # The seller gets its own account so the payment is visible as a balance change
 # rather than test1 paying itself.
 adduser seller
@@ -13,20 +18,34 @@ stdout '1000000000ugnot'
 # The facilitator is the only thing here that talks to the chain. The seller
 # guards an ordinary HTTP resource and never does.
 x402facilitator
-x402seller $seller_user_addr
+x402seller seller.json $seller_user_addr
 
 # A stock @x402/fetch client, taught about gno by one register() call. It reports
 # what happened as JSON so the outcome is checked rather than an exit code.
 exec node $X402_BUYER
 stdout '"status":200'
 
-# The resource was served.
+# The resource was served: the body seller.json names, verbatim.
 stdout 'sunny'
 
 # The payment settled, and the report names the transaction that did it.
 stdout '"transaction":"[0-9a-zA-Z]'
 stdout '"payer":"g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"'
 
-# And the money moved. This is the assertion nothing else in the repo can make.
+# And the money moved, by exactly the price above. This is the assertion nothing
+# else in the repo can make.
 gnokey query bank/balances/$seller_user_addr
 stdout '1000250000ugnot'
+
+-- seller.json --
+{
+  "route": "GET /weather",
+  "price": { "asset": "ugnot", "amount": "250000" },
+  "description": "Weather data",
+  "mimeType": "application/json",
+  "body": {
+    "location": "Paris",
+    "forecast": "sunny",
+    "celsius": 24
+  }
+}

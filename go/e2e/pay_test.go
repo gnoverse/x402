@@ -36,9 +36,6 @@ import (
 const (
 	chainID = "tendermint_test"
 	network = "gno:" + chainID
-
-	priceAmount = "250000"
-	priceAsset  = "ugnot"
 )
 
 func TestAStockClientPaysAGnoSeller(t *testing.T) {
@@ -111,40 +108,86 @@ func facilitatorCmd(ts *testscript.TestScript, neg bool, args []string) {
 	ts.Setenv("FACILITATOR_URL", server.URL)
 }
 
+// sellerOffer is a scenario's whole seller: the route, what it costs, and what a
+// paying buyer receives. It is read from a file inside the script's own archive,
+// so a scenario is one readable file rather than a script whose subject is
+// hardcoded in Go.
+//
+// The network is deliberately absent. It is the chain the harness started, not
+// something a scenario chooses, and a value here could only disagree with it.
+type sellerOffer struct {
+	Route string `json:"route"` // a net/http mux pattern, "GET /weather"
+	Price struct {
+		Asset  string `json:"asset"`
+		Amount string `json:"amount"`
+	} `json:"price"`
+	Description string          `json:"description"`
+	MimeType    string          `json:"mimeType"`
+	Body        json.RawMessage `json:"body"` // served verbatim to a paying buyer
+}
+
+// readSellerOffer decodes the offer file the script names. Unknown fields are
+// refused: the file is the scenario's contract, so a stray key has to fail loudly
+// rather than leave a default in place and quietly change what is tested. A key
+// differing only in case still binds, because encoding/json matches tags
+// case-insensitively, which is why the required fields are checked by value below
+// rather than left to the decoder.
+func readSellerOffer(ts *testscript.TestScript, path string) sellerOffer {
+	decoder := json.NewDecoder(strings.NewReader(ts.ReadFile(path)))
+	decoder.DisallowUnknownFields()
+
+	var offer sellerOffer
+	if err := decoder.Decode(&offer); err != nil {
+		ts.Fatalf("x402seller: %s: %v", path, err)
+	}
+	method, target, found := strings.Cut(offer.Route, " ")
+	switch {
+	case !found || method == "" || !strings.HasPrefix(target, "/"):
+		ts.Fatalf("x402seller: %s: route %q is not \"<METHOD> /<path>\"", path, offer.Route)
+	case offer.Price.Asset == "" || offer.Price.Amount == "":
+		ts.Fatalf("x402seller: %s: the offer names no price", path)
+	case len(offer.Body) == 0:
+		ts.Fatalf("x402seller: %s: the offer names no body, so a paid request buys nothing", path)
+	}
+	return offer
+}
+
 // x402seller guards one HTTP resource with the ecosystem's own middleware, with
 // gno registered as a way to pay for it. It never touches the chain.
+//
+// Only the middleware wiring is here. Everything the scenario decides comes from
+// the offer file, because that wiring is what this test exercises and the resource
+// behind it is a fixture.
 func sellerCmd(ts *testscript.TestScript, neg bool, args []string) {
-	if neg || len(args) != 1 {
-		ts.Fatalf("usage: x402seller <payTo>")
+	if neg || len(args) != 2 {
+		ts.Fatalf("usage: x402seller <offer.json> <payTo>")
 	}
-	payTo := args[0]
+	offer, payTo := readSellerOffer(ts, args[0]), args[1]
 
 	facilitator := ts.Getenv("FACILITATOR_URL")
 	if facilitator == "" {
 		ts.Fatalf("x402seller: no facilitator is running; call x402facilitator first")
 	}
 
+	// The same route string patterns the mux and keys the priced routes, so the
+	// resource served and the resource charged for cannot drift apart.
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /weather", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"location": "Paris",
-			"forecast": "sunny",
-			"celsius":  24,
-		})
+	mux.HandleFunc(offer.Route, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", offer.MimeType)
+		_, _ = w.Write(offer.Body)
 	})
 
 	handler := nethttpmw.X402Payment(nethttpmw.Config{
 		Routes: x402http.RoutesConfig{
-			"GET /weather": {
+			offer.Route: {
 				Accepts: x402http.PaymentOptions{{
 					Scheme:  "exact",
 					PayTo:   payTo,
-					Price:   x402.AssetAmount{Asset: priceAsset, Amount: priceAmount},
+					Price:   x402.AssetAmount{Asset: offer.Price.Asset, Amount: offer.Price.Amount},
 					Network: network,
 				}},
-				Description: "Weather data",
-				MimeType:    "application/json",
+				Description: offer.Description,
+				MimeType:    offer.MimeType,
 			},
 		},
 		Facilitator: x402http.NewHTTPFacilitatorClient(&x402http.FacilitatorConfig{URL: facilitator}),
@@ -157,7 +200,11 @@ func sellerCmd(ts *testscript.TestScript, neg bool, args []string) {
 	server := httptest.NewServer(handler)
 	ts.Defer(server.Close)
 
-	ts.Setenv("X402_SELLER_URL", server.URL+"/weather")
+	// The buyer is told both halves of the route, so a scenario changes the method
+	// by editing its offer file rather than the script or this command.
+	method, target, _ := strings.Cut(offer.Route, " ")
+	ts.Setenv("X402_SELLER_URL", server.URL+target)
+	ts.Setenv("X402_METHOD", method)
 	ts.Setenv("X402_GNO_RPC", ts.Getenv("RPC_ADDR"))
 }
 
