@@ -14,7 +14,7 @@ middleware. This supplies the chain-specific parts:
 
 - **Seller mechanism** — list gno in a route's `accepts[]` and the middleware prices it, offers it and reads the payment.
 - **`gnofacilitator`** — verifies payments and broadcasts them. It holds no keys.
-- **Client mechanism** — one `register()` call lets a stock x402 client pay any gno chain.
+- **Client mechanism** — one `register()` call lets a stock x402 client pay a gno chain.
 
 > [!WARNING]
 > **Work in progress — unaudited and pre-release.**

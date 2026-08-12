@@ -152,8 +152,13 @@ describe("signForChain", () => {
     expect(encoded(ours)).toBe(encoded(theirs));
   });
 
-  // What the whole change is for: one buyer can pay any gno chain named in an
-  // offer, not only the chain their provider happens to point at.
+  // What the whole change is for: the chain a signature commits to follows the
+  // offer rather than whichever chain the provider reports.
+  //
+  // It says nothing about the rest of the sign doc. This provider answers with
+  // one account number and sequence for every chain, so no test here can show
+  // that those two fields still come from the connected node — which is why
+  // paying a second chain also means connecting to it.
   it("signs against the chain it is given rather than the one the node reports", async () => {
     const wallet = await connectedWallet();
     const from = await wallet.getAddress();

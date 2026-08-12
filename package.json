@@ -2,7 +2,7 @@
   "name": "@gnoverse/x402-gno",
   "version": "0.1.0",
   "type": "module",
-  "description": "The gno payment mechanism for the x402 'exact' scheme. Register it on a stock x402 client and it can pay any gno chain named in an offer.",
+  "description": "The gno payment mechanism for the x402 'exact' scheme. Register it on a stock x402 client and it signs payments for the gno chain an offer names.",
   "license": "Apache-2.0",
   "homepage": "https://gno.land/",
   "keywords": [

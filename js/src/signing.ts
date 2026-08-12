@@ -17,9 +17,16 @@ export type DecodeTxMessages = (messages: Any[]) => unknown[];
  * wallet happens to be connected to.
  *
  * Wallet.signTransaction takes the chain id from the node — it reads /status and
- * offers no override — so a buyer could only ever pay the chain their provider
- * already pointed at. An x402 offer names its chain, and that is the one a
- * payment has to be signed against, or one buyer cannot serve two chains.
+ * offers no override — so the chain a payment committed to was whichever one the
+ * provider happened to report. An x402 offer names its chain, and that is the one
+ * the signature has to cover.
+ *
+ * Only the chain id is taken from the offer. The account number and sequence
+ * below come from the connected provider, because a gno sequence is sequential
+ * and only the chain holds the next one — so this decides which chain a signature
+ * commits to, not which node supplies the account state it commits to. Signing
+ * for one chain against another's account state produces a payment that chain's
+ * ante cannot reproduce, and the facilitator reports it signature_invalid.
  *
  * Avoiding /status has a second effect worth knowing: /status is the only
  * response that decodes a validator's bech32 address, which is the call that

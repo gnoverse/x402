@@ -39,15 +39,19 @@ server and facilitator halves are Go, so `./exact/client` is the only cell this 
 Its payload is one field, `transaction`: base64 of a fully signed, unbroadcast `std.Tx` carrying a
 single `bank.MsgSend`.
 
-## One buyer, any gno chain
+## The chain id comes from the offer
 
-Registering `"gno:*"` means it. The payment is signed against the chain id the **offer** names, so
-one client pays `gno:test14` and `gno:dev` without being reconfigured.
+The payment is signed against the chain id the **offer** names, not the one the wallet's node
+reports. That is worth stating because the obvious implementation cannot do it:
+`Wallet.signTransaction` takes the chain id from the node it is connected to and offers no override.
+This builds the sign doc itself instead, and a test holds the result byte-identical to the wallet's
+own signing.
 
-That is worth stating because the obvious implementation cannot do it: `Wallet.signTransaction`
-takes the chain id from the node it is connected to and offers no override, which would pin a buyer
-to a single chain. This builds the sign doc itself instead, and a test holds the result
-byte-identical to the wallet's own signing.
+The chain id is the only sign-doc field that comes from the offer. The account number and the
+sequence still come from the wallet's provider, because only a chain knows the next sequence for an
+account — so paying a second gno chain also means pointing the wallet at a node on it. A wallet
+connected elsewhere signs over that node's account state, and the facilitator verifying against the
+paid chain refuses the result as `invalid_exact_gno_payload_signature_invalid`.
 
 ## The fee is yours
 

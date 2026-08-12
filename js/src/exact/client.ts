@@ -127,7 +127,10 @@ export class ExactGnoScheme implements SchemeNetworkClient {
     };
 
     // Signed against the chain the offer names, not the chain the wallet's node
-    // happens to be. One buyer therefore pays any gno chain it is offered.
+    // reports. The account number and sequence still come from the wallet's
+    // provider, so the wallet has to be pointed at a node on the chain being
+    // paid — the offer decides which chain the signature covers, not which node
+    // supplies the account state it covers.
     const signed = await signForChain(this.wallet, tx, chainId, decodeTxMessages);
 
     return {
