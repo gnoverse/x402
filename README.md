@@ -1,5 +1,15 @@
 # x402 on gno.land
 
+> [!WARNING]
+> **Work in progress.** Interfaces, the reason vocabulary and the payload shape are all still
+> moving, and releases may break each other. The client mechanism has no registry release —
+> build it with `make js` from the repository root.
+
+> [!WARNING]
+> **Unaudited and pre-release. Do not point it at real funds.**
+>
+> Point it at testnets only. Nothing here has been reviewed for value at risk.
+
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Container](https://img.shields.io/badge/ghcr.io-gnoverse%2Fgnofacilitator-2496ED?logo=docker&logoColor=white)](https://github.com/gnoverse/x402/pkgs/container/gnofacilitator)
 
@@ -15,13 +25,6 @@ middleware. This supplies the chain-specific parts:
 - **Seller mechanism** — list gno in a route's `accepts[]` and the middleware prices it, offers it and reads the payment.
 - **`gnofacilitator`** — verifies payments and broadcasts them. It holds no keys.
 - **Client mechanism** — one `register()` call lets a stock x402 client pay a gno chain.
-
-> [!WARNING]
-> **Work in progress — unaudited and pre-release.**
->
-> - No gno scheme document is merged upstream yet.
-> - Point it at testnets. Nothing here has been reviewed for real funds.
-> - The client mechanism has no registry release — build it with `make js` from the repository root.
 
 ## Sell something
 
