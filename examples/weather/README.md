@@ -88,11 +88,12 @@ omitted.
 
 ## Paying it
 
-There is no Go client mechanism yet, so a Go buyer cannot pay this. The JS buyer in `js/` can:
+There is no Go client mechanism yet, so a Go buyer cannot pay this. The JS buyer the payment test
+drives can, and it is the same buyer either way:
 
 ```sh
 make js                     # install and build the client mechanism
-X402_SELLER_URL=http://localhost:8080/weather X402_GNO_RPC=<RPC URL> node js/buy.mjs
+X402_SELLER_URL=http://localhost:8080/weather X402_GNO_RPC=<RPC URL> node e2e/buyer.mjs
 ```
 
 It registers `ExactGnoScheme` with a stock `@x402/fetch` client — that one `register("gno:*", …)`
@@ -100,8 +101,8 @@ call is the only gno-aware line — and signs with the well-known test1 mnemonic
 first**, and point `X402_GNO_RPC` at the same node the facilitator uses: the buyer reads its account
 sequence from the chain, so this leg needs a real node rather than the unreachable one a 402 tolerates.
 
-The paid loop itself is covered: `go/e2e` runs this exact configuration — the same middleware, the
-same `accepts[]` entry, the same 250000ugnot price, this same `js/buy.mjs` — against an in-process
+The paid loop itself is covered: `e2e` runs this exact configuration — the same middleware, the
+same `accepts[]` entry, the same 250000ugnot price, this same `buyer.mjs` — against an in-process
 node on every pull request, and asserts the seller's balance moved. What has not been run is the
 command sequence on this page: three processes started by hand against a live chain, with a funded
 account.

@@ -1,4 +1,4 @@
-package server_test
+package exact_test
 
 import (
 	"context"
@@ -15,8 +15,8 @@ import (
 	x402http "github.com/x402-foundation/x402/go/v2/http"
 	nethttpmw "github.com/x402-foundation/x402/go/v2/http/nethttp"
 
-	"github.com/gnoverse/x402/go/facilitator"
-	gnoexact "github.com/gnoverse/x402/go/mechanisms/gno/exact/server"
+	"github.com/gnoverse/x402/facilitator"
+	gnoexact "github.com/gnoverse/x402/server/exact"
 )
 
 // keylessNode stands in for the chain. The 402 is decided from the seller's own

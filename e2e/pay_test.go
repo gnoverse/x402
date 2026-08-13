@@ -27,8 +27,8 @@ import (
 	x402http "github.com/x402-foundation/x402/go/v2/http"
 	nethttpmw "github.com/x402-foundation/x402/go/v2/http/nethttp"
 
-	"github.com/gnoverse/x402/go/facilitator"
-	gnoexact "github.com/gnoverse/x402/go/mechanisms/gno/exact/server"
+	"github.com/gnoverse/x402/facilitator"
+	gnoexact "github.com/gnoverse/x402/server/exact"
 )
 
 // The harness's in-memory node serves this chain, so it is the CAIP-2 reference
@@ -58,29 +58,27 @@ func TestAStockClientPaysAGnoSeller(t *testing.T) {
 	testscript.Run(t, params)
 }
 
-// buyerScript locates the JS buyer, two levels up: this module is go/e2e and the
-// JS tree is the repository's own js/, a sibling of go/.
+// buyerScript is the buyer this harness drives, a sibling of this file: the whole
+// claim under test is that a stock client pays, so the buyer is part of the
+// harness rather than something borrowed from elsewhere in the tree.
 //
-// A missing buy.mjs FAILS rather than skips. It is committed, so its absence means
-// the path is wrong — which is how a repository reshuffle turns this whole test
-// into a silent pass. Only the built output is allowed to be absent, because
-// building it needs npm and a Go-only checkout should not be blocked on that.
+// A missing buyer.mjs FAILS rather than skips, because it is committed. Only the
+// built mechanism is allowed to be absent, since building it needs npm and a
+// Go-only checkout should not be blocked on that.
 func buyerScript(t *testing.T) string {
 	t.Helper()
 
 	wd, err := os.Getwd()
 	require.NoError(t, err)
 
-	repo := filepath.Join(wd, "..", "..")
-
-	buyer := filepath.Join(repo, "js", "buy.mjs")
+	buyer := filepath.Join(wd, "buyer.mjs")
 	_, err = os.Stat(buyer)
 	require.NoError(t, err, "the JS buyer is committed, so this path is wrong")
 
-	// buy.mjs imports the mechanism by package name, so the package has to be
+	// buyer.mjs imports the mechanism by package name, so the package has to be
 	// installed and built, not merely present in the tree. The emit lands in
-	// js/dist, which the root package.json's exports map points at.
-	if _, err := os.Stat(filepath.Join(repo, "js", "dist", "client.mjs")); err != nil {
+	// client/dist, which the root package.json's exports map points at.
+	if _, err := os.Stat(filepath.Join(wd, "..", "client", "dist", "client.mjs")); err != nil {
 		t.Skipf("the JS mechanism is not built (%v); run `make js`", err)
 	}
 	return buyer

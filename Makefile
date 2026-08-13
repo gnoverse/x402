@@ -1,17 +1,18 @@
 # gnoverse/x402 — the gno payment mechanism for x402, its facilitator, and the
 # harnesses that prove a payment happens.
 #
-# Sources are laid out by language, go/ and js/, but both manifests live at the
-# root where tooling expects them: `go test ./...` and `npm test` work without
-# changing directory, and setup-go, dependabot and pkg.go.dev all find them.
+# Sources are laid out by mechanism role — server/, facilitator/, client/ — and
+# both manifests live at the root where tooling expects them: `go test ./...` and
+# `npm test` work without changing directory, and setup-go, dependabot and
+# pkg.go.dev all find them.
 #
 # The test layers are separate on purpose, cheapest first:
 #   test       the library. No network, no chain, no npm.
 #   js-test    the buyer mechanism, including the sign doc byte-equality check.
 #   test-e2e   one real payment, through a real in-memory node and the JS buyer.
 #
-# go/e2e is its own Go module, so `test` cannot start a chain by accident and
-# needs no build tag to stay out of the way.
+# e2e is its own Go module, so `test` cannot start a chain by accident and needs
+# no build tag to stay out of the way.
 
 # A failed `go build -o` or `npm run build` must not leave a partial artifact that
 # a later run mistakes for finished work.
@@ -22,12 +23,12 @@ SHELL := /bin/sh
 GO ?= go
 NPM ?= npm
 
-E2E := go/e2e
+E2E := e2e
 BIN := bin
 FACILITATOR := $(BIN)/gnofacilitator
 
-# The JS mechanism emits under js/, not the root dist/ that goreleaser owns.
-JS_DIST := js/dist
+# The client mechanism emits under client/, not the root dist/ goreleaser owns.
+JS_DIST := client/dist
 JS_CLIENT := $(JS_DIST)/client.mjs
 
 # A released binary is stamped by goreleaser; a local one says where it came from.
@@ -44,7 +45,7 @@ all: build ## Build everything (default)
 # cache already decides what to recompile, and a manual source list goes stale.
 build: ## Build the facilitator into bin/
 	mkdir -p $(BIN)
-	$(GO) build -ldflags "$(LDFLAGS)" -o $(FACILITATOR) ./go/cmd/gnofacilitator
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(FACILITATOR) ./cmd/gnofacilitator
 
 test: ## Run the library tests
 	$(GO) test ./...
@@ -53,9 +54,10 @@ test: ## Run the library tests
 test-e2e: $(JS_CLIENT) ## Pay a gno seller end to end against a real in-memory node
 	cd $(E2E) && $(GO) test -count=1 ./...
 
-# The buyers in js/ are stock @x402/* clients. They are opt-in so a Go-only
-# checkout is never blocked on npm. buy.mjs imports the mechanism by package name,
-# the way a stranger would, so the package must be built and not merely installed.
+# The buyer the payment test drives is a stock @x402/* client. These targets are
+# opt-in so a Go-only checkout is never blocked on npm. e2e/buyer.mjs imports the
+# mechanism by package name, the way a stranger would, so the package must be
+# built and not merely installed.
 js: $(JS_CLIENT) ## Install and build the JS mechanism
 
 js-test: $(JS_CLIENT) ## Run the JS mechanism's tests
@@ -66,9 +68,9 @@ node_modules: package.json package-lock.json
 	touch $@
 
 # Both levels are listed because Make's $(wildcard) does not recurse, and the
-# sources sit one directory deep: js/src/exact/ mirrors the scheme/role subpath
+# sources sit one directory deep: client/src/exact/ mirrors the scheme/role subpath
 # the package publishes.
-TS_SOURCES := $(wildcard js/src/*.ts) $(wildcard js/src/exact/*.ts)
+TS_SOURCES := $(wildcard client/src/*.ts) $(wildcard client/src/exact/*.ts)
 
 # The emitted client, not the directory that holds it. A directory's mtime says
 # nothing about whether the build finished — and .DELETE_ON_ERROR: cannot rescue
@@ -81,10 +83,10 @@ $(JS_CLIENT): node_modules tsconfig.json tsdown.config.ts $(TS_SOURCES)
 lint: ## Vet both Go modules and check formatting
 	$(GO) vet ./...
 	cd $(E2E) && $(GO) vet ./...
-	gofmt -l go | tee /dev/stderr | (! read -r first)
+	gofmt -l . | tee /dev/stderr | (! read -r first)
 
 fmt: ## Format the Go sources
-	gofmt -w go
+	gofmt -w .
 
 # node_modules is a fetched dependency rather than an artifact, and refetching it
 # is expensive, so it survives. Remove it by hand to start over.
@@ -92,7 +94,7 @@ clean: ## Remove build artifacts
 	rm -rf $(BIN) $(JS_DIST) dist
 
 install: ## Install the facilitator into GOPATH/bin
-	$(GO) install -ldflags "$(LDFLAGS)" ./go/cmd/gnofacilitator
+	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/gnofacilitator
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_.$$()-]+:.*## ' $(MAKEFILE_LIST) \

@@ -11,7 +11,7 @@ version: 2
 
 builds:
   - id: gnofacilitator
-    main: ./go/cmd/gnofacilitator
+    main: ./cmd/gnofacilitator
     binary: gnofacilitator
     # Static: the image is distroless, which has no libc to link against.
     env: [CGO_ENABLED=0]

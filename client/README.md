@@ -3,12 +3,13 @@
 Pay a gno.land chain with x402. One line on a stock client — no fork, no patch, no upstream change.
 
 Build it from the repository root with `make js`. There is no registry release, so a consumer works
-against this repository — `buy.mjs` beside these sources is a working buyer that does exactly that.
+against this repository — [`e2e/buyer.mjs`](../e2e/buyer.mjs), the buyer the payment test drives, is
+a working example of exactly that.
 
 ```js
 import { x402Client } from "@x402/core/client";
 import { wrapFetchWithPayment } from "@x402/fetch";
-import { ExactGnoScheme } from "./js/dist/client.mjs";
+import { ExactGnoScheme } from "./client/dist/client.mjs";
 
 const client = new x402Client();
 client.register("gno:*", new ExactGnoScheme(wallet)); // ← the only gno-aware line
@@ -21,8 +22,8 @@ const res = await paid("https://api.example.com/weather");
 required: a gno sequence is sequential, so only the chain knows the next one.
 
 Inside this repository the same import resolves through the manifest's `exports` map instead of the
-built path, which is what `buy.mjs` does — so the map is exercised by the payment test rather than
-only on a future install.
+built path, which is what `e2e/buyer.mjs` does — so the map is exercised by the payment test rather
+than only on a future install.
 
 ## What it is
 
@@ -72,11 +73,11 @@ asset that is not `ugnot`, an amount that is not a positive integer, an absent `
 
 ## Development
 
-Sources are here in `js/src`, laid out by the subpath they publish; the manifest and the emit are at
-the repository root, so these run from there.
+Sources are here in `client/src`, laid out by the subpath they publish, and the emit lands beside
+them; the manifest is at the repository root, so these run from there.
 
 ```sh
 npm run typecheck   # TypeScript 7 (the native compiler)
 npm test            # vitest
-npm run build       # typecheck, then emit js/dist/
+npm run build       # typecheck, then emit client/dist/
 ```

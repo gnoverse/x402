@@ -64,12 +64,12 @@ carries them there, not in the body:
   }] }
 ```
 
-Runnable, against a facilitator and a real chain → **[go/examples/weather](go/examples/weather)**.
+Runnable, against a facilitator and a real chain → **[examples/weather](examples/weather)**.
 
 ## Pay for it
 
 ```js
-import { ExactGnoScheme } from "./js/dist/client.mjs";
+import { ExactGnoScheme } from "./client/dist/client.mjs";
 
 const client = new x402Client().register("gno:*", new ExactGnoScheme(wallet));
 const paid = wrapFetchWithPayment(fetch, client);
@@ -78,30 +78,28 @@ const res = await paid("https://api.example.com/weather");
 
 Recognising the 402, selecting an entry, encoding `PAYMENT-SIGNATURE` and retrying are
 `@x402/fetch`'s own code, unmodified. The payment is signed against the chain id the **offer** names
-rather than the one the wallet's node reports — see [js/README.md](js/README.md) for what that does
-and does not buy you.
+rather than the one the wallet's node reports — see [client/README.md](client/README.md) for what
+that does and does not buy you.
 
 ## What's in here
 
 An x402 mechanism has three roles — **server** (the seller), **facilitator**, **client** (the buyer)
-— and the ecosystem names them the same way in both languages: `@x402/evm` publishes
+— and the ecosystem names them the same way in every language: `@x402/evm` publishes
 `./exact/server`, `./exact/facilitator` and `./exact/client`, and its Go module has the matching
-directories. This fills the same grid for gno; which language a role is written in is an
-implementation detail of that role.
+directories. The top level here is that grid. Which language a role is written in is an
+implementation detail of the role, so no directory names one.
 
 | Role | Path | What |
 |------|------|------|
-| server | `go/mechanisms/gno/exact/server/` | upstream's `SchemeNetworkServer`, implemented for gno |
-| facilitator | `go/facilitator/` | verification, settlement, and the `/verify` `/settle` `/supported` service |
-| client | `js/src/exact/client.ts` | upstream's `SchemeNetworkClient`, TypeScript |
+| server | `server/exact/` | upstream's `SchemeNetworkServer`, implemented for gno |
+| facilitator | `facilitator/` | verification, settlement, and the `/verify` `/settle` `/supported` service |
+| client | `client/src/exact/client.ts` | upstream's `SchemeNetworkClient`, TypeScript |
 
-Plus `go/cmd/gnofacilitator/` (the binary), `go/examples/weather/` (a priced endpoint you can run
-and curl) and `go/e2e/` (one real payment through a real node — its own Go module).
+Plus `cmd/gnofacilitator/` (the binary), `examples/weather/` (a priced endpoint you can run and
+curl) and `e2e/` (one real payment through a real node — its own Go module).
 
-Under that, sources split by language into `go/` and `js/` the way
-[x402-foundation/x402](https://github.com/x402-foundation/x402) splits its own. Both manifests —
-`go.mod` and `package.json` — live at the root, so `go test ./...`, `npm test` and every `make`
-target run from here.
+Both manifests — `go.mod` and `package.json` — live at the root, so `go test ./...`, `npm test` and
+every `make` target run from here.
 
 ## Payment model
 

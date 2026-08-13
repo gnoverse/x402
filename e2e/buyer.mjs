@@ -1,12 +1,16 @@
-// A stock x402 client buys from a gno seller.
+// A stock x402 client buys from a gno seller. This is the buyer the payment test
+// drives: pay_test.go hands it to the txtar scenarios as $X402_BUYER. Running it
+// by hand against a live seller is the same path, with a real node.
 //
 // The only gno-aware line is the register() call. Everything the protocol
 // requires — issuing the request, recognising the 402, decoding the offer,
 // selecting an accepts[] entry, encoding PAYMENT-SIGNATURE, retrying — is
 // @x402/fetch's own code, unmodified, exactly as it does for Base or Solana.
 //
-// Prints a JSON report on stdout describing what happened, so a caller checks
-// the outcome rather than trusting an exit code. Diagnostics go to stderr.
+// Prints a JSON report on stdout describing what happened, so a caller checks the
+// outcome rather than trusting an exit code. The scenarios assert on status,
+// payer and transaction, so those field names are a contract. Diagnostics go to
+// stderr.
 import { GnoJSONRPCProvider, GnoWallet } from "@gnolang/gno-js-client";
 import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@x402/fetch";
 

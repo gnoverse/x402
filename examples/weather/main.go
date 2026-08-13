@@ -24,7 +24,7 @@ import (
 	x402http "github.com/x402-foundation/x402/go/v2/http"
 	nethttpmw "github.com/x402-foundation/x402/go/v2/http/nethttp"
 
-	gnoexact "github.com/gnoverse/x402/go/mechanisms/gno/exact/server"
+	gnoexact "github.com/gnoverse/x402/server/exact"
 )
 
 // The facilitator is queried while the middleware is being built, so this bounds

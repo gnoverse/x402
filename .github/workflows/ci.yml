@@ -15,11 +15,11 @@ jobs:
         with: { go-version: '1.26.5' }
       - run: go test -short -race ./...
       - run: go vet ./...
-      # go/e2e is a separate module, so ./... never reaches it. Vet it here or the
+      # e2e is a separate module, so ./... never reaches it. Vet it here or the
       # harness rots unnoticed until someone runs it.
       - run: go vet ./...
-        working-directory: go/e2e
-      - run: gofmt -l -d go | tee /tmp/fmt && test ! -s /tmp/fmt
+        working-directory: e2e
+      - run: gofmt -l -d . | tee /tmp/fmt && test ! -s /tmp/fmt
       # A dependency imported directly but recorded as indirect still builds, so
       # nothing else here would notice the manifest drifting from the imports.
       - run: go mod tidy -diff
