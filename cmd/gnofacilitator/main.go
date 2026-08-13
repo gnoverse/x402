@@ -15,7 +15,7 @@ import (
 	gnoclient "github.com/gnolang/gno/gno.land/pkg/gnoclient"
 	rpcclient "github.com/gnolang/gno/tm2/pkg/bft/rpc/client"
 
-	"github.com/gnoverse/x402/go/facilitator"
+	"github.com/gnoverse/x402/facilitator"
 )
 
 // version is stamped at build time with -ldflags "-X main.version=…". A binary

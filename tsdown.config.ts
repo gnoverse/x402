@@ -5,14 +5,14 @@ import { defineConfig } from "tsdown";
 //
 // Dependencies and peers stay external: bundling them would ship a second copy of
 // the wallet, and of the x402 client the consumer already has.
-// The emit lands under js/, beside the sources it is built from, because the
+// The emit lands under client/, beside the sources it is built from, because the
 // repository root's dist/ belongs to goreleaser: it writes artifacts.json there
 // and CI reads it, while `clean: true` below empties whatever directory this
 // names. Two tools owning one directory means each run destroys the other's
 // output, and a missing client is a skipped payment test rather than a failure.
 export default defineConfig({
-  entry: ["js/src/exact/client.ts"],
-  outDir: "js/dist",
+  entry: ["client/src/exact/client.ts"],
+  outDir: "client/dist",
   format: ["esm"],
   dts: true,
   clean: true,

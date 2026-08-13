@@ -5,7 +5,7 @@
   "description": "The gno payment mechanism for the x402 'exact' scheme. Register it on a stock x402 client and it signs payments for the gno chain an offer names.",
   "license": "Apache-2.0",
   "homepage": "https://gno.land/",
-  "//repository": "npm resolves the package page's relative links against this, and the published page is the repository root README rather than js/README.md.",
+  "//repository": "npm resolves the package page's relative links against this, and the published page is the repository root README rather than client/README.md.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gnoverse/x402.git"
@@ -18,13 +18,13 @@
     "payments"
   ],
   "files": [
-    "js/dist/"
+    "client/dist/"
   ],
   "//exports": "The subpath is the ecosystem's own grid — @x402/evm publishes ./exact/client, ./exact/server and ./exact/facilitator, so a buyer that already imports one reaches for the same path here. gno's server half is Go, so ./exact/client is the only cell this package fills.",
   "exports": {
     "./exact/client": {
-      "types": "./js/dist/client.d.mts",
-      "default": "./js/dist/client.mjs"
+      "types": "./client/dist/client.d.mts",
+      "default": "./client/dist/client.mjs"
     },
     "./package.json": "./package.json"
   },

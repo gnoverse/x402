@@ -3,7 +3,7 @@
 //
 // The resource is any endpoint and the chain is only the payment rail, so nothing
 // here knows about realms or contract calls.
-package server
+package exact
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/gnolang/gno/tm2/pkg/std"
-	"github.com/gnoverse/x402/go/facilitator"
+	"github.com/gnoverse/x402/facilitator"
 	x402 "github.com/x402-foundation/x402/go/v2"
 	"github.com/x402-foundation/x402/go/v2/types"
 )

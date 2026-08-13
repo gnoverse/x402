@@ -1,11 +1,11 @@
-package server
+package exact
 
 import (
 	"context"
 	"strings"
 	"testing"
 
-	"github.com/gnoverse/x402/go/facilitator"
+	"github.com/gnoverse/x402/facilitator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	x402 "github.com/x402-foundation/x402/go/v2"

@@ -46,7 +46,7 @@ func interopRequirements() PaymentRequirements {
 func interopPayload(t *testing.T) SchemePayload {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("testdata", interopFixture))
-	require.NoError(t, err, "interop fixture missing — regenerate with go generate ./go/facilitator")
+	require.NoError(t, err, "interop fixture missing — regenerate with go generate ./facilitator")
 	return SchemePayload{Transaction: strings.TrimSpace(string(raw))}
 }
 

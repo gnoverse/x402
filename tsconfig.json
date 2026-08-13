@@ -22,8 +22,8 @@
     "skipLibCheck": true,
 
     "declaration": true,
-    "outDir": "js/dist",
+    "outDir": "client/dist",
     "noEmit": true
   },
-  "include": ["js/src"]
+  "include": ["client/src"]
 }
