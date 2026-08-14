@@ -28,8 +28,10 @@
     },
     "./package.json": "./package.json"
   },
+  "//publishConfig": "The registry is pinned so a publish cannot be redirected by an .npmrc or a stray environment variable, matching @gnolang/gno-js-client. access is public because scoped packages default to private.",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "//engines": "The floor a CONSUMER needs, not the one this repo builds with: the emit targets ES2023, which Node 20 covers in full, and neither @gnolang runtime dependency declares a constraint of its own. Working on the package needs newer — tsdown wants Node 22.18+ and CI runs 24.",
   "engines": {
@@ -40,6 +42,7 @@
     "typecheck": "tsc",
     "test": "vitest run",
     "build": "tsc && tsdown",
+    "check:package": "publint && attw --pack . --profile esm-only",
     "prepublishOnly": "npm run build"
   },
   "//dependencies": "Versions are exact so a signed payment changes only when a dependency is deliberately bumped. @x402/core is a peer: only its types are used, and a mechanism must not pull in a second copy of the client its consumer already has.",
@@ -51,9 +54,11 @@
     "@x402/core": ">=2.21.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
     "@types/node": "26.2.0",
     "@x402/core": "2.21.0",
     "@x402/fetch": "2.21.0",
+    "publint": "0.3.23",
     "tsdown": "0.22.14",
     "typescript": "7.0.2",
     "vitest": "4.1.10"

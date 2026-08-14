@@ -34,7 +34,11 @@ JS_CLIENT := $(JS_DIST)/client.mjs
 # A released binary is stamped by goreleaser; a local one says where it came from.
 # Falls back to "dev", which is what the source declares, so the two never
 # disagree about what an unstamped build is called.
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+#
+# --match keeps this on the facilitator's own tag line: the client releases under
+# client/v…, and a bare `git describe` would happily stamp a facilitator binary
+# with a client version.
+VERSION := $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X main.version=$(VERSION)
 
 .PHONY: all build test test-e2e js js-test lint fmt clean install help
