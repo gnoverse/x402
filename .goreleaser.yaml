@@ -9,6 +9,13 @@ version: 2
 # facilitator next to their own node usually wants the binary, and one running it
 # in a cluster wants the image.
 
+# client/v… tags are reachable from HEAD, and goreleaser resolves the PREVIOUS tag
+# with a bare `git describe --tags --abbrev=0` — no --match. Without this, a client
+# release becomes the changelog baseline and every Go commit before it silently
+# disappears from the release notes.
+git:
+  ignore_tags: ["client/v*"]
+
 builds:
   - id: gnofacilitator
     main: ./cmd/gnofacilitator

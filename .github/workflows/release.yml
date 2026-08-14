@@ -1,20 +1,41 @@
 name: Release
-# Manual-only: dispatch with a version. One component, one version line, plain
-# semver tags — the library and the npm package are consumed by version rather
-# than by download, so only gnofacilitator is released here.
+# Manual-only: dispatch with a component + version. gnofacilitator and the client
+# mechanism release on INDEPENDENT cadences and version lines — releasing one never
+# rebuilds or re-tags the other. See docs/releasing.md.
 #
-# The tag is what `go get github.com/gnoverse/x402@vX.Y.Z` resolves, so this
-# workflow versions the library too, even though it builds only the facilitator.
+# gnofacilitator takes the plain semver tag (v<version>), which is also what
+# `go get github.com/gnoverse/x402@vX.Y.Z` resolves, so that tag versions the Go
+# library too. The client is an npm package whose version lives in package.json, so
+# its git tag is prefixed (client/v<version>) to keep an independent line: a bare
+# v<version> tag would publish a Go module version for a release containing no Go
+# change at all.
 on:
   workflow_dispatch:
     inputs:
+      component:
+        description: "Which component to release"
+        required: true
+        type: choice
+        options: [facilitator, client]
       version:
         description: "Release version, e.g. 0.2.0 (v prefix optional)"
         required: true
         type: string
-permissions: {} # the job declares exactly what it needs
+permissions: {} # each job declares exactly what it needs
+# Keyed per component, so a facilitator and a client release can still run at the
+# same time — only two runs of the SAME component serialise, and they are the pair
+# that would race on the tag-already-exists check.
+#
+# cancel-in-progress stays false deliberately: cancelling a release mid-flight is
+# worse than queueing it. A run killed between the tag push and the publish leaves a
+# tag with nothing behind it.
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.component }}
+  cancel-in-progress: false
 jobs:
-  goreleaser:
+  # ---- gnofacilitator: archives + GitHub release + image, all attested.
+  facilitator:
+    if: ${{ inputs.component == 'facilitator' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -29,17 +50,29 @@ jobs:
       - name: Validate the version and compute the tag
         env:
           RAW_VERSION: ${{ inputs.version }} # via env, never inlined: injection hygiene
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
+            echo "::error::release only from ${DEFAULT_BRANCH}, not ${GITHUB_REF}"
+            exit 1
+          fi
           version="${RAW_VERSION#v}"
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
-            echo "::error::invalid version '$RAW_VERSION' (want X.Y.Z or X.Y.Z-pre)"
+            # On its own line: a dispatch input can contain newlines, and
+            # interpolating it into a ::error:: lets a caller forge workflow commands.
+            echo "::error::invalid version (want X.Y.Z or X.Y.Z-pre), got:"
+            printf '%s\n' "$RAW_VERSION"
             exit 1
           fi
           tag="v$version"
-          git fetch --tags --force
           if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
-            echo "::error::tag ${tag} already exists; to re-release, delete it first: git push --delete origin ${tag}"
+            # Deliberately NOT "delete the tag and retry". This tag is the Go module
+            # version: once anything has resolved github.com/gnoverse/x402@vX.Y.Z,
+            # sum.golang.org has bound that version to that commit forever, and
+            # re-cutting it elsewhere gives every downstream build a permanent
+            # checksum mismatch. The remedy is the next number.
+            echo "::error::tag ${tag} already exists. Do not delete it — it is a published Go module version. Cut the next patch number instead."
             exit 1
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
@@ -76,10 +109,20 @@ jobs:
 
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          version: '~> v2'
+          # Exact, not '~> v2': this is the binary that produces every release
+          # artifact, in a job holding id-token and a live ghcr credential, and a
+          # floating version means CI validated the config against a different build
+          # than the release runs.
+          version: 'v2.17.1'
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Named explicitly rather than left to goreleaser's nearest-tag lookup:
+          # client/v… tags are also reachable from HEAD, and a client tag on the
+          # release commit would otherwise resolve as this build's version. TAG
+          # already holds exactly this string — deriving it again would yield a bare
+          # "v" if VERSION ever failed to resolve.
+          GORELEASER_CURRENT_TAG: ${{ env.TAG }}
 
       - name: Attest the release archives
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
@@ -96,7 +139,7 @@ jobs:
           # attesting the index digest covers every tag.
           digest="$(jq -r --arg img "${IMAGE}:${VERSION}" '
             [ .[] | select(.type == "Docker Image" and .name == $img) | .extra.Digest ]
-            | unique | .[0] // empty' dist/artifacts.json)"
+            | map(select(. != null and . != "")) | unique | .[0] // empty' dist/artifacts.json)"
           if [ -z "$digest" ]; then
             echo "::error::could not resolve the image digest from dist/artifacts.json"
             jq -r '.[] | select(.type | test("Docker")) | .type + "  " + .name + "  " + (.extra.Digest // "-")' dist/artifacts.json
@@ -110,3 +153,124 @@ jobs:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.imgdigest.outputs.digest }}
           push-to-registry: true
+
+  # ---- client: one npm publish. No goreleaser, no GitHub release, no image.
+  #
+  # No npm token anywhere. npmjs.com holds a trusted publisher naming this
+  # repository and this workflow's filename, and the id-token permission is what
+  # lets npm mint a short-lived credential in a token's place. Renaming this file
+  # breaks publishing until the trusted publisher is updated to match.
+  client:
+    if: ${{ inputs.component == 'client' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # push the client/v… tag
+      id-token: write # the only publishing credential: npm's OIDC exchange
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
+
+      - name: Validate the version and compute the tag
+        env:
+          RAW_VERSION: ${{ inputs.version }} # via env, never inlined: injection hygiene
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
+            echo "::error::release only from ${DEFAULT_BRANCH}, not ${GITHUB_REF}"
+            exit 1
+          fi
+          version="${RAW_VERSION#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            # The value goes on its own line: a dispatch input can contain newlines,
+            # and interpolating it into a ::error:: lets a caller forge workflow
+            # commands.
+            echo "::error::invalid version (want X.Y.Z or X.Y.Z-pre), got:"
+            printf '%s\n' "$RAW_VERSION"
+            exit 1
+          fi
+          tag="client/v$version"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            # Safe to suggest here, unlike the facilitator: client/v… is not a Go
+            # module version, so deleting and re-cutting it breaks nothing.
+            echo "::error::tag ${tag} already exists; delete it to re-release: git push --delete origin ${tag}"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+
+      # package.json is the published version, so the dispatch has to agree with it
+      # rather than rewrite it. Failing here costs nothing; a wrong version on the
+      # registry can never be reused.
+      - name: Check package.json carries this version
+        run: |
+          set -euo pipefail
+          declared="$(jq -r .version package.json)"
+          if [ "$declared" != "$VERSION" ]; then
+            echo "::error::package.json carries $declared, not $VERSION — bump it, commit, merge, then re-dispatch"
+            exit 1
+          fi
+
+      # The e2e is the only test that proves this client can actually pay a chain,
+      # and it drives the built bundle through a real node. Its harness is Go.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: '1.26.5' }
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Pinned, not `npm@latest`: npm/cli#9722 has `--provenance` failing with
+      # "Cannot find module 'sigstore'" on npm 12 pre-releases, and a self-
+      # overwriting global install can leave a half-written tree. Trusted
+      # publishing needs >= 11.5.1.
+      - run: npm install -g npm@11.14.1 --ignore-scripts
+      - run: npm --version
+
+      # A git tag cannot tell you a version is spent — 0.1.0 was hand-published
+      # without one — so ask the registry. This fails rather than skipping: a
+      # published version can never be reused, and the only remedy is the next
+      # number, which is a decision for a person and not for this job.
+      - name: Check the version is not already published
+        run: |
+          set -euo pipefail
+          name="$(jq -r .name package.json)"
+          if npm view "${name}@${VERSION}" version > /dev/null 2>&1; then
+            echo "::error::${name}@${VERSION} is already on the registry; that number is spent, pick the next one"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: make test-e2e
+
+      # Packaging gates: publint reads the packed tarball, and attw resolves the
+      # exports map the way a consumer's TypeScript would. A broken exports map
+      # cannot be fixed on a published version. They are pinned devDependencies
+      # rather than npx fetches: this job holds id-token, so nothing in it should
+      # run code resolved from the network at release time.
+      - run: npm run check:package
+
+      # Publish BEFORE tagging, because the two are not equally reversible: a tag
+      # is one command to delete, an npm version is spent forever. Committing the
+      # cheap resource first is what strands a tag on a failed publish — and npm's
+      # OIDC layer is documented never to throw, so a misconfigured trusted
+      # publisher surfaces as a bare E404, which is exactly the failure that would
+      # strand it.
+      #
+      # --access public because scoped packages default to private, and --provenance
+      # so the version carries a signed link back to this run. prepublishOnly
+      # rebuilds once more here; that is deliberate.
+      - run: npm publish --access public --provenance
+
+      # Left unrecoverable-by-retry only in one direction now: a published version
+      # with no tag, which one push fixes.
+      - name: Create and push the tag
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"

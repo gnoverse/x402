@@ -36,6 +36,11 @@ jobs:
       # is what holds the mechanism to the interface @x402/core publishes.
       - run: npm run typecheck
       - run: npm test
+      # A broken exports map or a mis-packed tarball is unfixable once a version is
+      # on the registry, so it fails a PR rather than a release. attw packs, which
+      # needs the emit to exist.
+      - run: npm run build
+      - run: npm run check:package
 
   # The claim this repo exists to make: a stock x402 client pays a gno seller and
   # the chain agrees. It needs both toolchains and takes seconds, so it runs on
@@ -68,11 +73,11 @@ jobs:
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          version: '~> v2'
+          version: 'v2.17.1' # exact, so CI validates the same build the release runs
           args: check
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          version: '~> v2'
+          version: 'v2.17.1' # exact, so CI validates the same build the release runs
           args: release --snapshot --clean
       # Guard the release workflow's attestation contract: it resolves the image
       # digest by filtering artifacts.json on type "Docker Image" plus
