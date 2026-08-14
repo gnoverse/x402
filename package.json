@@ -35,10 +35,12 @@
   "engines": {
     "node": ">=20"
   },
+  "//scripts": "prepublishOnly runs on every publish, from CI or a laptop. `files` ships only client/dist, so publishing an unbuilt tree would put a package on the registry whose single export path does not resolve — and a burned version number can never be reused.",
   "scripts": {
     "typecheck": "tsc",
     "test": "vitest run",
-    "build": "tsc && tsdown"
+    "build": "tsc && tsdown",
+    "prepublishOnly": "npm run build"
   },
   "//dependencies": "Versions are exact so a signed payment changes only when a dependency is deliberately bumped. @x402/core is a peer: only its types are used, and a mechanism must not pull in a second copy of the client its consumer already has.",
   "dependencies": {

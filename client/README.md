@@ -2,14 +2,13 @@
 
 Pay a gno.land chain with x402. One line on a stock client — no fork, no patch, no upstream change.
 
-Build it from the repository root with `make js`. There is no registry release, so a consumer works
-against this repository — [`e2e/buyer.mjs`](../e2e/buyer.mjs), the buyer the payment test drives, is
-a working example of exactly that.
+Install it with `npm i @gnoverse/x402-gno`, or build it from the repository root with `make js`.
+[`e2e/buyer.mjs`](../e2e/buyer.mjs), the buyer the payment test drives, is a working example.
 
 ```js
 import { x402Client } from "@x402/core/client";
 import { wrapFetchWithPayment } from "@x402/fetch";
-import { ExactGnoScheme } from "./client/dist/client.mjs";
+import { ExactGnoScheme } from "@gnoverse/x402-gno/exact/client";
 
 const client = new x402Client();
 client.register("gno:*", new ExactGnoScheme(wallet)); // ← the only gno-aware line
@@ -21,9 +20,9 @@ const res = await paid("https://api.example.com/weather");
 `wallet` is a `GnoWallet` from `@gnolang/gno-js-client`, connected to a provider. The connection is
 required: a gno sequence is sequential, so only the chain knows the next one.
 
-Inside this repository the same import resolves through the manifest's `exports` map instead of the
-built path, which is what `e2e/buyer.mjs` does — so the map is exercised by the payment test rather
-than only on a future install.
+`e2e/buyer.mjs` uses that same package-name import from inside this repository, resolving through the
+manifest's `exports` map rather than a built path — so the map is exercised by the payment test
+rather than only by consumers.
 
 ## What it is
 

@@ -2,8 +2,7 @@
 
 > [!WARNING]
 > **Work in progress.** Interfaces, the reason vocabulary and the payload shape are all still
-> moving, and releases may break each other. The client mechanism has no registry release —
-> build it with `make js` from the repository root.
+> moving, and releases may break each other.
 
 > [!WARNING]
 > **Unaudited and pre-release. Do not point it at real funds.**
@@ -68,8 +67,12 @@ Runnable, against a facilitator and a real chain → **[examples/weather](exampl
 
 ## Pay for it
 
+```sh
+npm i @gnoverse/x402-gno
+```
+
 ```js
-import { ExactGnoScheme } from "./client/dist/client.mjs";
+import { ExactGnoScheme } from "@gnoverse/x402-gno/exact/client";
 
 const client = new x402Client().register("gno:*", new ExactGnoScheme(wallet));
 const paid = wrapFetchWithPayment(fetch, client);
