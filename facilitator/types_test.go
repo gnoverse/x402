@@ -120,7 +120,7 @@ func TestSettleResponse_FailureCarriesEmptyTransaction(t *testing.T) {
 func TestVerifyResponse_JSONFieldNames(t *testing.T) {
 	resp := VerifyResponse{
 		IsValid:       false,
-		InvalidReason: ReasonChainMismatch,
+		InvalidReason: ReasonInvalidNetwork,
 		Payer:         "g1payer",
 	}
 	data, err := json.Marshal(resp)

@@ -182,3 +182,36 @@ func keysOf(m map[string]json.RawMessage) []string {
 	}
 	return keys
 }
+
+// The reason codes §9 of the specification enumerates, transcribed verbatim from
+// specs/x402-specification-v2.md at the commit named above (lines 605-619).
+//
+// Only the scheme-independent names are transcribed. §9 also lists EVM's
+// invalid_exact_evm_payload_* codes, which belong to that scheme's vocabulary
+// and say nothing about this one.
+var specEnvelopeReasons = []string{
+	"insufficient_funds",
+	"invalid_network",
+	"invalid_payload",
+	"invalid_payment_requirements",
+	"invalid_scheme",
+	"unsupported_scheme",
+	"invalid_x402_version",
+	"invalid_transaction_state",
+	"unexpected_verify_error",
+	"unexpected_settle_error",
+}
+
+// TestEnvelopeReasonsAreSpecNames checks the envelope-level codes against the
+// specification's list rather than against our own constants. A code that
+// describes the envelope is a name every scheme shares, so inventing one — or
+// misspelling one — publishes a token no client can interpret.
+//
+// Scheme-level codes are deliberately absent: gno's have no entry to match,
+// which is what the invalid_exact_gno_ prefix declares.
+func TestEnvelopeReasonsAreSpecNames(t *testing.T) {
+	for _, reason := range envelopeLevelReasons {
+		assert.Contains(t, specEnvelopeReasons, reason,
+			"envelope-level reason %q is not a name the specification defines", reason)
+	}
+}
