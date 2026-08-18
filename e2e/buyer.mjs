@@ -9,9 +9,10 @@
 //
 // Prints a JSON report on stdout describing what happened, so a caller checks the
 // outcome rather than trusting an exit code. The scenarios assert on status,
-// payer and transaction, so those field names are a contract. Diagnostics go to
-// stderr.
+// payer, transaction and reason, so those field names are a contract. Diagnostics
+// go to stderr.
 import { GnoJSONRPCProvider, GnoWallet } from "@gnolang/gno-js-client";
+import { decodePaymentRequiredHeader } from "@x402/core/http";
 import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@x402/fetch";
 
 // Imported by package name, not by path: this buyer goes through the same
@@ -20,6 +21,7 @@ import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@
 import { ExactGnoScheme } from "@gnoverse/x402-gno/exact/client";
 
 const PAYMENT_RESPONSE_HEADER = "PAYMENT-RESPONSE";
+const PAYMENT_REQUIRED_HEADER = "PAYMENT-REQUIRED";
 
 // The well-known test1 key. This buyer only ever pays on throwaway chains.
 const MNEMONIC =
@@ -37,6 +39,29 @@ function fromEnv(name) {
 // rather than the scheme an HTTP client needs.
 function httpURL(addr) {
   return addr.replace(/^tcp:\/\//, "http://");
+}
+
+// Why a payment did not go through: the reason code when one was reported, the
+// server's own message otherwise, "" when it reported neither. The carrier says
+// where the payment stopped — errorReason in the settle receipt, or the error
+// field of the challenge answering a verify. Both are scheme-independent fields
+// of the protocol.
+//
+// Not every value is a reason code. A facilitator that cannot reach the chain
+// reports no verdict, and its message arrives here as prose; a challenge for a
+// request that presented no payment carries the generic "Payment required".
+// Neither is a refusal, so telling those apart is what status and settled are
+// for.
+function refusalReason(response, settle) {
+  if (typeof settle.errorReason === "string" && settle.errorReason !== "") {
+    return settle.errorReason.trim();
+  }
+  const challenge = response.headers.get(PAYMENT_REQUIRED_HEADER);
+  if (challenge === null || challenge === "") {
+    return "";
+  }
+  const { error } = decodePaymentRequiredHeader(challenge);
+  return typeof error === "string" ? error.trim() : "";
 }
 
 const sellerURL = fromEnv("X402_SELLER_URL");
@@ -72,7 +97,10 @@ const settleHeader = paid.headers.get(PAYMENT_RESPONSE_HEADER);
 if (settleHeader !== null && settleHeader !== "") {
   settle = decodePaymentResponseHeader(settleHeader);
 }
-console.error(`status: ${paid.status} settled: ${settle.success === true}`);
+const reason = refusalReason(paid, settle);
+console.error(
+  `status: ${paid.status} settled: ${settle.success === true}${reason === "" ? "" : ` reason: ${reason}`}`,
+);
 
 process.stdout.write(
   JSON.stringify({
@@ -80,5 +108,6 @@ process.stdout.write(
     body,
     payer: settle.payer ?? "",
     transaction: settle.transaction ?? "",
+    reason,
   }),
 );

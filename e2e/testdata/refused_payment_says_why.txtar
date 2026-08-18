@@ -1,0 +1,51 @@
+# A refused payment names the reason it was refused with.
+#
+# The price is beyond what the payer holds, so the payment is well-formed and
+# correctly signed and still cannot succeed.
+#
+# The reason travels as the error field of the Payment-Required header, which
+# upstream fills from the facilitator's invalidReason. A stock x402 client reads
+# that field on every chain; nothing about it is gno-specific.
+adduser seller
+
+gnoland start
+
+gnokey query bank/balances/$seller_user_addr
+stdout '1000000000ugnot'
+
+# test1 pays. An unfunded payer is refused with the same reason as an unaffordable
+# price, so the balance is asserted before the price is set past it.
+gnokey query bank/balances/$test1_user_addr
+stdout 'ugnot'
+
+x402facilitator
+x402seller unaffordable.json $seller_user_addr
+
+exec node $X402_BUYER
+
+# The purchase failed and the resource was withheld.
+stdout '"status":402'
+! stdout 'sunny'
+
+# Nothing settled, so there is no transaction to name.
+stdout '"transaction":""'
+
+# The reason the facilitator refused with.
+stdout '"reason":"invalid_exact_gno_transaction_simulation_failed"'
+
+# The money did not move.
+gnokey query bank/balances/$seller_user_addr
+stdout '1000000000ugnot'
+
+-- unaffordable.json --
+{
+  "route": "GET /weather",
+  "price": { "asset": "ugnot", "amount": "100000000000000000" },
+  "description": "Weather data",
+  "mimeType": "application/json",
+  "body": {
+    "location": "Paris",
+    "forecast": "sunny",
+    "celsius": 24
+  }
+}
