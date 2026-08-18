@@ -2,6 +2,7 @@ package facilitator
 
 import (
 	"encoding/base64"
+	"slices"
 	"strings"
 	"testing"
 
@@ -50,6 +51,32 @@ func reqFixture() PaymentRequirements {
 	}
 }
 
+// The reason vocabulary, partitioned by level. The partition is what the tests
+// below check each half against, so a new code joins one of these lists and is
+// held to that level's rules.
+var (
+	schemeLevelReasons = []string{
+		ReasonMalformedTransaction,
+		ReasonUnexpectedMessage,
+		ReasonSignatureCount,
+		ReasonRecipientMismatch,
+		ReasonAmountMismatch,
+		ReasonMemoMismatch,
+		ReasonSimulationFailed,
+		ReasonBroadcastFailed,
+		ReasonSignatureInvalid,
+		ReasonSequenceMismatch,
+	}
+	envelopeLevelReasons = []string{
+		ReasonInvalidPayload,
+		ReasonInvalidVersion,
+		ReasonInvalidNetwork,
+		ReasonInvalidRequirements,
+		ReasonUnsupportedScheme,
+		ReasonUnexpectedSettleError,
+	}
+)
+
 // TestReasonVocabulary pins the shape of the reason vocabulary. Scheme-level
 // codes carry the invalid_exact_<caip2-namespace> prefix the peer schemes use —
 // "gno" is the CAIP-2 namespace, matching how SVM's constants say "solana" —
@@ -58,38 +85,17 @@ func reqFixture() PaymentRequirements {
 // once integrators depend on them, so a collision or a stray prefix must fail
 // here rather than after publication.
 func TestReasonVocabulary(t *testing.T) {
-	schemeLevel := []string{
-		ReasonMalformedTransaction,
-		ReasonUnexpectedMessage,
-		ReasonSignatureCount,
-		ReasonRecipientMismatch,
-		ReasonAmountMismatch,
-		ReasonMemoMismatch,
-		ReasonChainMismatch,
-		ReasonSimulationFailed,
-		ReasonBroadcastFailed,
-		ReasonSignatureInvalid,
-		ReasonSequenceMismatch,
-	}
-	envelopeLevel := []string{
-		ReasonInvalidPayload,
-		ReasonInvalidVersion,
-		ReasonInvalidRequirements,
-		ReasonUnsupportedScheme,
-		ReasonUnexpectedSettleError,
-	}
-
-	for _, reason := range schemeLevel {
+	for _, reason := range schemeLevelReasons {
 		assert.True(t, strings.HasPrefix(reason, "invalid_exact_gno_"),
 			"scheme-level reason %q must name the scheme and the CAIP-2 namespace", reason)
 	}
-	for _, reason := range envelopeLevel {
+	for _, reason := range envelopeLevelReasons {
 		assert.False(t, strings.HasPrefix(reason, "invalid_exact_"),
 			"envelope-level reason %q is not scheme-specific", reason)
 	}
 
 	seen := make(map[string]bool)
-	for _, reason := range append(append([]string{}, schemeLevel...), envelopeLevel...) {
+	for _, reason := range slices.Concat(schemeLevelReasons, envelopeLevelReasons) {
 		require.NotEmpty(t, reason)
 		assert.False(t, seen[reason], "two conditions must not report the same reason: %q", reason)
 		seen[reason] = true

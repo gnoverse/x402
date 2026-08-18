@@ -23,7 +23,6 @@ const (
 	ReasonRecipientMismatch    = "invalid_exact_gno_payload_recipient_mismatch"
 	ReasonAmountMismatch       = "invalid_exact_gno_payload_amount_mismatch"
 	ReasonMemoMismatch         = "invalid_exact_gno_payload_memo_mismatch"
-	ReasonChainMismatch        = "invalid_exact_gno_network_mismatch"
 	ReasonSimulationFailed     = "invalid_exact_gno_transaction_simulation_failed"
 	ReasonBroadcastFailed      = "invalid_exact_gno_transaction_failed"
 
@@ -54,6 +53,10 @@ const (
 	// ReasonInvalidVersion reports a payload declaring a protocol version this
 	// implementation does not speak.
 	ReasonInvalidVersion = "invalid_x402_version"
+
+	// ReasonInvalidNetwork reports requirements naming a network this facilitator
+	// does not serve.
+	ReasonInvalidNetwork = "invalid_network"
 
 	// ReasonInvalidRequirements reports a requirements object this scheme
 	// cannot act on — an extra.memo that is not a string, or one over the cap.

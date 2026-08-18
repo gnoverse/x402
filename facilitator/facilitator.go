@@ -181,7 +181,7 @@ func (f *Server) check(ctx context.Context, req Request) paymentCheck {
 		return refusePayment("", ReasonUnsupportedScheme, nil)
 	}
 	if req.PaymentRequirements.Network != f.network() {
-		return refusePayment("", ReasonChainMismatch, nil)
+		return refusePayment("", ReasonInvalidNetwork, nil)
 	}
 	if !acceptsSameOffer(req.PaymentPayload.Accepted, req.PaymentRequirements) {
 		return refusePayment("", ReasonInvalidPayload, nil)

@@ -128,7 +128,7 @@ func TestFacilitator_VerifyWrongNetwork(t *testing.T) {
 	var resp VerifyResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.False(t, resp.IsValid)
-	assert.Equal(t, ReasonChainMismatch, resp.InvalidReason)
+	assert.Equal(t, ReasonInvalidNetwork, resp.InvalidReason)
 }
 
 // TestFacilitator_VerifySimulationFailure covers a chain that answered and
