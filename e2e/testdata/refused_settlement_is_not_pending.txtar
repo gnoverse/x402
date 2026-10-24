@@ -1,9 +1,9 @@
 # A settlement the facilitator refused is not paid, even when its receipt names
-# a transaction. Only settlement_pending says a payment may still go through.
+# a transaction. Only settlement_pending says a payment may still go through,
+# and duplicate_settlement that the payment it copies may have.
 #
 # The facilitator refuses with a hash when a block executed the payment and
-# aborted it, as broadcast_failed, and when the payment is a copy of one it is
-# settling, as duplicate_settlement. Upstream's Go middleware blanks that hash
+# aborted it, as broadcast_failed. Upstream's Go middleware blanks that hash
 # for every reason but settlement_pending, while a seller on @x402/core's
 # TypeScript server passes it on. refusedSettlement in seller.json has
 # x402seller answer the paid request the way that seller does.

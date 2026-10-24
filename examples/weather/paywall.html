@@ -3,11 +3,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Payment required · x402 on Gno testnet demo</title>
+<meta name="description" content="A {{.Demo}} of x402 on Gno: pay {{.Amount}} {{.Unit}} for one sample weather reading, from the Adena wallet or from code. The mechanism is unaudited and pre-release.">
+<title>Payment required · x402 on Gno {{.Demo}}</title>
 <style>
 :root{
   --x-paper:#eceee8;--x-ink:#183c34;--x-muted:#4a6057;--x-line:#aab9aa;--x-panel:#e2e6db;
   --x-accent:#d9ed84;--x-due:#eebe3f;--x-on-face:#183c34;
+  /* The lime is nearly the paper's lightness, so a lime chip needs an edge to stand on it. */
+  --x-accent-edge:color-mix(in srgb,var(--x-on-face) 30%,var(--x-accent));
   --x-sunny-face:#e9efaa;--x-sunny-ring:#8d872c;--x-sunny-glyph:#6b661e;--x-sunny-glow:rgba(238,190,63,.24);--x-sunny-halo:rgba(218,183,56,.22);
   --x-cloudy-face:#d7ddd6;--x-cloudy-ring:#6b7b74;--x-cloudy-glyph:#4a5a54;--x-cloudy-bank:rgba(108,126,118,.16);
   --x-rain-face:#c2dae0;--x-rain-ring:#5d8897;--x-rain-glyph:#365e70;--x-rain-tint:rgba(83,129,147,.17);--x-rain-line:rgba(84,123,138,.4);
@@ -18,12 +21,13 @@
   --x-gutter:48px;--x-masthead:73px;
   /* --x-grow scales the hero on a window taller than 900px, by no more than the width past 1382px lets
      the headline's 5.5vw ceiling grow (.07/.055 per px). --x-hero-content is the closed hero's height
-     from 1382px wide; re-measure its 670px and .574 if the hero changes. */
+     from 1382px wide; re-measure its 780px and .612 if the hero changes. */
   --x-grow:clamp(0px,min(var(--x-screen,100vh) - 900px,(100vw - 1382px)/1.273),540px);
-  --x-dial:calc(270px + var(--x-grow)*.4);--x-hero-content:calc(670px + var(--x-grow)*.574);
+  --x-dial:calc(270px + var(--x-grow)*.4);--x-hero-content:calc(780px + var(--x-grow)*.612);
 }
 @media (prefers-color-scheme:dark){:root{
   --x-paper:#132b26;--x-ink:#e4eddf;--x-muted:#b2c4b9;--x-line:#4c6c5e;--x-panel:#203c32;
+  --x-sunny-glow:rgba(238,190,63,.1);
 }}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -39,8 +43,8 @@ code{font-size:.85em}
 pre{position:relative;margin:16px 0 0;padding:20px;background:var(--x-panel);font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
 pre[data-copy]{padding-right:76px}
 pre code{font-size:inherit}
-.mono{font:11px/1.5 var(--x-mono);letter-spacing:.06em}
-.copy{position:absolute;top:8px;right:8px;padding:4px 8px;border:1px solid var(--x-line);background:var(--x-paper);color:var(--x-ink);font:11px/1.4 var(--x-mono)}
+.mono{font:12px/1.5 var(--x-mono);letter-spacing:.06em}
+.copy{position:absolute;top:8px;right:8px;padding:4px 8px;border:1px solid var(--x-line);background:var(--x-paper);color:var(--x-ink);font:12px/1.4 var(--x-mono)}
 .copy:hover{border-color:var(--x-ink)}
 
 /* ---- Frame and weather backdrop */
@@ -63,7 +67,9 @@ pre code{font-size:inherit}
 .masthead .mono{text-transform:uppercase}
 .brand{font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
 .brand span{display:inline-block;width:13px;height:13px;margin-right:10px;border:1px solid currentColor;border-radius:50%;vertical-align:-1px}
-.edition{color:var(--x-muted)}
+/* The edition takes the room between the brand and the nav, wrapping there rather than
+   pushing the nav onto a line of its own. */
+.edition{flex:1 1 0;color:var(--x-muted);text-align:center}
 .masthead nav{display:flex;flex-wrap:wrap;gap:8px 24px}
 
 /* ---- The 402 and the reading */
@@ -81,10 +87,26 @@ pre code{font-size:inherit}
 /* paywall.js reveals #pay-result only for a settled payment. */
 .sky:has(#pay-result:not([hidden])) .settled{display:inline}
 .sky:has(#pay-result:not([hidden])) .unpaid{display:none}
-.sky:has(#pay-result:not([hidden])) .badge{background:var(--x-accent);color:var(--x-on-face)}
+/* A payment that may still settle is marked pending on the status line: sent, not confirmed. */
+.sent{display:none}
+.sky:has(#pay-status[data-outcome=pending]) .sent{display:inline}
+.sky:has(#pay-status[data-outcome=pending]) .unsent{display:none}
+.sky:has(#pay-result:not([hidden])) .badge{background:var(--x-accent);color:var(--x-on-face);box-shadow:inset 0 0 0 1px var(--x-accent-edge)}
 .headline{margin-top:26px;font-family:var(--x-display);font-size:clamp(44px,5.5vw,calc(76px + var(--x-grow)*.07));letter-spacing:-.055em;line-height:1.04}
 .intro{max-width:calc(480px + var(--x-grow)*.25);margin-top:22px;color:var(--x-muted);font-size:calc(16px + var(--x-grow)*.007)}
-.coordinates{margin-top:18px;color:var(--x-muted)}
+.gloss + .intro{margin-top:12px}
+/* The exchange a payment walks through. paywall.js names the step it is on in
+   the sky's data-step; without one the page rests on the unpaid request. */
+.track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:24px 0 0;padding:0;list-style:none}
+.track li{padding:10px 14px 0 0;border-top:2px solid var(--x-line);color:var(--x-muted);font-size:calc(13px + var(--x-grow)*.006);line-height:1.35}
+.track code{display:inline-block;margin-bottom:6px;padding:1px 6px;border:1px solid color-mix(in srgb,currentColor 40%,transparent);color:inherit;font-size:12px;letter-spacing:.04em}
+.sky:is(:not([data-step]),[data-step="402"]) .track [data-step="402"],
+.sky[data-step=sign] .track [data-step=sign],.sky[data-step=sign] .track li:has(~ [data-step=sign]),
+.sky[data-step=retry] .track [data-step=retry],.sky[data-step=retry] .track li:has(~ [data-step=retry]),
+.sky[data-step="200"] .track li{border-top-color:var(--x-ink);color:var(--x-ink)}
+.sky:is(:not([data-step]),[data-step="402"]) .track [data-step="402"] code{border-color:var(--x-due);background:var(--x-due);color:var(--x-on-face)}
+.sky[data-step=sign] .track [data-step=sign] code,.sky[data-step=retry] .track [data-step=retry] code{border-color:var(--x-ink);background:var(--x-ink);color:var(--x-paper)}
+.sky[data-step="200"] .track [data-step="200"] code{border-color:var(--x-accent-edge);background:var(--x-accent);color:var(--x-on-face)}
 .sky:not([data-forecast]) .reading,.sky[data-forecast] .awaiting{display:none}
 .instrument{display:flex;align-items:center;gap:30px;margin-top:28px}
 .gauge{position:relative;flex-shrink:0;width:var(--x-dial)}
@@ -101,7 +123,7 @@ pre code{font-size:inherit}
 .glyph{display:block;width:calc(var(--x-dial)*.12);height:calc(var(--x-dial)*.12);color:var(--x-glyph);fill:currentColor}
 .sky:not([data-forecast]) .glyph{display:none}
 .temp{font-size:calc(var(--x-dial)*.3);font-weight:300;letter-spacing:-.08em;line-height:1}
-.dial-caption{margin-top:14px;font-size:11px;letter-spacing:.15em;text-align:center;text-transform:uppercase}
+.dial-caption{margin-top:14px;font-size:12px;letter-spacing:.15em;text-align:center;text-transform:uppercase}
 .sky[data-forecast] .dial{background:repeating-conic-gradient(var(--x-ink) 0deg 1deg,transparent 1deg 10deg)}
 .sky[data-forecast] .dial::before{border-color:var(--x-ring);background:var(--x-face)}
 .sky[data-forecast] .dial::after{border-color:var(--x-ring)}
@@ -118,28 +140,65 @@ pre code{font-size:inherit}
 
 /* ---- The offer */
 .offer{align-self:start;padding-top:18px;border-top:3px solid var(--x-ink)}
-.offer h2{margin:18px 0;font-size:calc(26px + var(--x-grow)*.016);letter-spacing:-.04em;line-height:1.2}
+.offer h2{margin:0 0 18px;font-size:calc(26px + var(--x-grow)*.016);letter-spacing:-.04em;line-height:1.2}
 .price{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-top:27px}
 .price strong{font-size:calc(66px + var(--x-grow)*.04);font-weight:500;letter-spacing:-.06em;line-height:1}
 .price span{font-size:calc(17px + var(--x-grow)*.007)}
 .fine{margin-top:3px;color:var(--x-muted)}
-.net,#no-adena p{margin-top:14px;color:var(--x-muted);font-size:calc(13px + var(--x-grow)*.005)}
-.net code{color:var(--x-ink)}
+.coin,.net,.role,.setup,#no-adena p{margin-top:14px;color:var(--x-muted);font-size:calc(13px + var(--x-grow)*.005)}
+:is(.coin,.net) code{color:var(--x-ink)}
+.coin{margin-top:6px}
+.setup{margin-bottom:0;padding-left:18px}
+.setup li+li{margin-top:4px}
 .pay-button{display:flex;justify-content:space-between;gap:12px;width:100%;margin-top:22px;padding:calc(17px + var(--x-grow)*.012) 20px;border:1px solid var(--x-on-face);background:var(--x-accent);color:var(--x-on-face);font-size:calc(16px + var(--x-grow)*.006);font-weight:600;text-align:left;text-decoration:none}
 .pay-button:hover{filter:brightness(1.08)}
 .alt-pay{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding:13px 20px;border:1px solid var(--x-muted);color:var(--x-ink);font-size:calc(14px + var(--x-grow)*.005);text-decoration:none}
 .alt-pay:hover{border-color:var(--x-ink)}
-/* After a payment the page offers no second payment, so the link to pay from code goes too. */
-.sky:has(#pay-result:not([hidden])) .alt-pay{display:none}
+/* Without Adena, paying from code already leads the offer. */
+@media (scripting:enabled){#no-adena:not([hidden]) ~ .alt-pay{display:none}}
 /* Adena pays through the script, so without it only paying from code remains. */
 @media (scripting:none){#no-adena{display:none}}
+/* A touch screen pays on neither path, so there the offer says so, its main button hands the
+   page on to a computer, and paying from code, like the faucet and Adena's setup, waits for it. */
+.phone-note,#send-link,.code-steps{display:none}
+@media (pointer:coarse){
+  .phone-note{display:block}
+  #send-link,.code-steps{display:flex}
+  .offer:has(#no-adena:not([hidden])) .net,#no-adena a[href^="https://adena.app"],.setup,.code-pay{display:none}
+  /* Targets a finger can hit: 44px or more, the masthead's without moving its layout. */
+  .copy{padding:14px 12px}
+  summary{padding-block:12px}
+  .masthead a{padding-block:14px;margin-block:-14px}
+}
+@media (pointer:coarse) and (max-width:800px){pre[data-copy]{padding-top:66px}}
+/* Source code keeps its indentation: a line too long for the block scrolls rather than wraps. */
+.snippet code{display:block;overflow-x:auto;white-space:pre;overflow-wrap:normal}
+/* Paid, the offer turns into the receipt and the way on: no second payment. */
+.served{display:none;color:var(--x-muted);font-size:18px;line-height:1.3}
+#paid-reading{color:var(--x-ink);font-weight:500}
+.next{display:none}
+.sky:has(#pay-result:not([hidden])) .next{display:block}
+.sky:has(#pay-result:not([hidden])) :is(.offer > .alt-pay,.net,.role,#no-adena){display:none}
+.sky:has(#pay-result:not([hidden])) .price strong{font-size:calc(36px + var(--x-grow)*.02)}
+.sky:has(#pay-result:not([hidden])) #pay-status{font-size:calc(16px + var(--x-grow)*.006)}
 .pay-button:disabled{cursor:wait;opacity:.75}
-#pay-status{margin-top:12px;font-size:13px;overflow-wrap:anywhere}
+#pay-status{margin-top:12px;color:var(--x-muted);font-size:13px;overflow-wrap:anywhere}
 #pay-status:empty{display:none}
+/* Voiced by a screen reader, never drawn, and left out of a selection so the hash beside it
+   copies alone. */
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;user-select:none}
+/* paywall.js names how a payment ended in data-outcome; while it runs there is none. */
+#pay-status[data-outcome]{color:var(--x-ink)}
+#pay-status:is([data-outcome=refused],[data-outcome=pending]){padding:12px 14px;background:var(--x-panel)}
+/* A payment that may still settle offers no second one, from code either. */
+.offer:has(#pay-status[data-outcome=pending]) > .alt-pay{display:none}
 .offer dl{margin:22px 0 0}
 .offer dl div{display:grid;grid-template-columns:calc(80px + var(--x-grow)*.04) minmax(0,1fr);gap:8px;padding:10px 0;border-top:1px solid var(--x-line);font-size:calc(13px + var(--x-grow)*.005)}
 .offer dt{color:var(--x-muted)}
-.offer dd{margin:0;overflow-wrap:anywhere}
+.offer dd{margin:0;overflow-wrap:anywhere;text-wrap:balance}
+/* An address may break anywhere, so its lines can come out even instead of leaving a few
+   characters alone. */
+.offer dd code{word-break:break-all}
 .offer dd .fine{display:block;margin:0}
 details{margin-top:20px}
 summary{width:fit-content;font-size:calc(13px + var(--x-grow)*.005);cursor:pointer}
@@ -149,6 +208,10 @@ summary{width:fit-content;font-size:calc(13px + var(--x-grow)*.005);cursor:point
 .documentation{max-width:760px;margin:0 auto 60px}
 .documentation h2{margin:44px 0 16px;font-size:28px;letter-spacing:-.04em;line-height:1.2}
 .documentation p{margin-top:16px;color:var(--x-muted)}
+/* Prose keeps to about 70 characters a line; code keeps the whole column. */
+.documentation > p,.caution p,.flow li > div,.steps p{max-width:36em}
+/* A URL in a sentence is one long word; it breaks rather than widen a phone's page. */
+.documentation p code{overflow-wrap:anywhere}
 .flow{margin:0;padding:0;list-style:none}
 .flow li{display:grid;grid-template-columns:60px minmax(0,1fr);gap:15px;padding:16px 0;border-top:1px solid var(--x-line);color:var(--x-muted)}
 .flow li:last-child{border-bottom:1px solid var(--x-line)}
@@ -162,6 +225,7 @@ summary{width:fit-content;font-size:calc(13px + var(--x-grow)*.005);cursor:point
 .steps>li::before{content:counter(step,decimal-leading-zero);font:11px/2.3 var(--x-mono);letter-spacing:.06em;color:var(--x-ink)}
 .steps>li:last-child{border-bottom:1px solid var(--x-line)}
 .steps b,.steps code{color:var(--x-ink)}
+.steps p{margin:0}
 .nowrap{white-space:nowrap}
 footer{margin-top:40px;padding-top:15px;border-top:1px solid var(--x-line);color:var(--x-muted);font-size:12px}
 .documentation footer p{margin:0;color:inherit}
@@ -174,20 +238,38 @@ footer{margin-top:40px;padding-top:15px;border-top:1px solid var(--x-line);color
 }
 @media (max-width:800px){
   :root{--x-gutter:22px;--x-dial:150px}
-  .masthead{display:grid;grid-template-columns:minmax(0,1fr) auto;min-height:0;padding:20px 0}
-  .edition{grid-row:2;grid-column:1/-1}
+  .masthead{display:grid;grid-template-columns:minmax(0,1fr) auto;min-height:0;padding:16px 0}
+  .edition{grid-row:2;grid-column:1/-1;text-align:left}
   .masthead .how{display:none}
-  .hero{grid-template-columns:minmax(0,1fr);min-height:0;padding-top:26px}
-  .headline{font-size:clamp(34px,8.6vw,56px)}
+  .hero{grid-template-columns:minmax(0,1fr);gap:0;min-height:0;padding-top:26px}
+  /* The steps and the gauge follow the offer, so neither pushes the pay button or the receipt
+     down as it appears during a payment. */
+  .hero > div{display:contents}
+  .offer{order:1;margin-top:32px}
+  .track{order:2;margin-top:32px}
+  .instrument{order:3}
+  /* The dial is then out of view, so the receipt names the reading. */
+  .sky[data-forecast] .served{display:block}
+  .headline{margin-top:20px;font-size:clamp(34px,8.6vw,56px)}
+  .intro{margin-top:16px}
+  /* The gloss follows the offer, so a 360x740 screen still shows the offer's first action. */
+  .gloss{order:4;margin-top:32px}
+  .gloss + .intro{margin-top:16px}
+  .track{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:14px}
   .instrument{flex-direction:row;align-items:flex-start;gap:18px;margin-top:24px}
-  .dial-caption{margin-top:10px;font-size:10px;letter-spacing:.1em}
-  /* On a phone the empty dial stays hidden until a forecast is drawn, so the price comes first. */
-  .sky:not([data-forecast]) .instrument{display:none}
+  .dial-caption{margin-top:10px;font-size:11px;letter-spacing:.1em}
+  /* On a phone the empty dial stays hidden until a forecast is drawn, and the track until a
+     payment starts, so the price comes first. */
+  .sky:not([data-forecast]) .instrument,.sky:not([data-step]) .track{display:none}
   /* The faded rings' box would still pan the page sideways. */
   .gauge::before{display:none}
   .reading-copy .reading-title{font-size:20px}
   .reading-copy p{font-size:13px}
-  .price strong{font-size:60px}
+  /* A 360x740 screen still shows the offer's first action. */
+  .offer h2{margin:0 0 12px}
+  .price{margin-top:18px}
+  .price strong{font-size:52px}
+  #no-adena .pay-button{margin-top:14px}
   .documentation h2{font-size:25px}
   .flow li{grid-template-columns:45px minmax(0,1fr);font-size:14px}
   .steps>li{grid-template-columns:minmax(0,1fr);gap:2px;font-size:14px}
@@ -198,7 +280,8 @@ footer{margin-top:40px;padding-top:15px;border-top:1px solid var(--x-line);color
   html{scroll-behavior:smooth}
   .eyebrow,.headline{animation:x-rise .5s ease backwards}
   /* Not .instrument: Chrome holds it at the animation's first frame while reporting it finished. */
-  .intro,.coordinates,.offer{animation:x-rise .5s ease .15s backwards}
+  .intro,.track,.offer{animation:x-rise .5s ease .15s backwards}
+  .track li,.track code{transition:border-color .4s ease,color .4s ease,background-color .4s ease}
   .sky::before,.sky::after,.gauge::before{transition:opacity 1.2s ease}
   .dial,.dial::before,.dial::after{transition:background-color 1.2s ease,border-color 1.2s ease,box-shadow 1.2s ease}
   .sky[data-forecast=sunny]::before{animation:x-sunlight 12s ease-in-out infinite alternate}
@@ -216,10 +299,11 @@ footer{margin-top:40px;padding-top:15px;border-top:1px solid var(--x-line);color
 @keyframes x-rise{from{opacity:0;transform:translateY(8px)}}
 </style>
 
+<body>
 <div class="sky" id="sky">
   <header class="masthead">
     <p class="brand"><span aria-hidden="true"></span>x402 / Gno</p>
-    <p class="edition mono">testnet demo · sample weather data</p>
+    <p class="edition mono"><span class="nowrap">{{.Demo}} ·</span> <span class="nowrap">unaudited ·</span> <span class="nowrap">pre-release ·</span> <span class="nowrap">sample weather data</span></p>
     <nav aria-label="Page">
       <a class="mono how" href="#how">How it works ↓</a>
       <a class="mono" href="https://github.com/gnoverse/x402">Source on GitHub ↗</a>
@@ -229,10 +313,16 @@ footer{margin-top:40px;padding-top:15px;border-top:1px solid var(--x-line);color
   <main>
     <div class="hero">
       <div>
-        <p class="eyebrow mono"><span class="badge"><span class="unpaid">402</span><span class="settled">200</span></span><span class="unpaid">PAYMENT REQUIRED</span><span class="settled">OK · PAYMENT SETTLED</span></p>
+        <p class="eyebrow mono"><span class="badge"><span class="unpaid">402</span><span class="settled">200</span></span><span class="unpaid unsent">PAYMENT REQUIRED</span><span class="sent">PAYMENT SENT · NOT CONFIRMED</span><span class="settled">OK · PAYMENT SETTLED</span></p>
         <h1 class="headline">x402 on Gno:<br>pay per HTTP request.</h1>
-        <p class="intro">Sign a payment for one weather request, then get the data once it settles. A script or an agent pays the same price over HTTP, with no account and no API key.</p>
-        <p class="coordinates mono">SAMPLE RESOURCE / GET /weather</p>
+        <p class="intro gloss">x402 lets a server charge for each HTTP request, here on the Gno blockchain. A payment settles once the chain makes the transfer.</p>
+        <p class="intro"><span class="unpaid">Sign a payment for one weather request, then get the data once it settles.</span><span class="settled">You signed one payment, the seller's facilitator settled it, and the weather came back.</span> A script or an agent pays the same price over HTTP, with no account and no API key.</p>
+        <ol class="track" aria-label="The payment, step by step">
+          <li data-step="402"><code>402</code><br>GET /weather names its price</li>
+          <li data-step="sign"><code>sign</code><br>The buyer signs a payment</li>
+          <li data-step="retry"><code>retry</code><br>The same request, paid</li>
+          <li data-step="200"><code>200</code><br>Settled, then served</li>
+        </ol>
         <div class="instrument">
           <div class="gauge">
             <div class="dial">
@@ -247,7 +337,7 @@ footer{margin-top:40px;padding-top:15px;border-top:1px solid var(--x-line);color
                 <p class="temp"><span class="awaiting">—</span><span id="paid-temp"></span>°</p>
               </div>
             </div>
-            <p class="dial-caption mono"><span class="awaiting">Awaiting payment</span><span class="reading"><span id="paid-forecast"></span> / Celsius</span></p>
+            <p class="dial-caption mono"><span class="awaiting">Awaiting <span class="unsent">payment</span><span class="sent">confirmation</span></span><span class="reading"><span id="paid-forecast"></span> / Celsius</span></p>
           </div>
           <div class="reading-copy">
             <p class="reading-title"><span class="awaiting">The sample reading.</span><span class="reading">The reading you paid for.</span></p>
@@ -257,20 +347,33 @@ footer{margin-top:40px;padding-top:15px;border-top:1px solid var(--x-line);color
       </div>
 
       <section class="offer" aria-labelledby="offer-title">
-        <p class="mono">THE TERMS / SCHEME EXACT</p>
-        <h2 id="offer-title">Get the weather.<br>One reading, one payment.</h2>
+        <h2 id="offer-title"><span class="unpaid">Get the weather.<br>One reading, one payment.</span><span class="settled">Settled, then served.</span></h2>
+        <p class="served"><span id="paid-reading"></span> · sample data</p>
         <p class="price"><strong>{{.Amount}}</strong><span>{{.Unit}} / request</span></p>
-        <p class="fine mono">{{.Coin}}</p>
-        <p class="net">Test GNOT on <code>{{.Network}}</code>, from <a href="https://faucet.gno.land">faucet.gno.land</a>. The network fee is on top.</p>
+        <p class="coin"><code>{{.Coin}}</code>{{if eq .Unit "GNOT"}}: a ugnot is a millionth of a GNOT.{{end}}</p>
+        <p class="net">Test GNOT on <code>{{.Network}}</code>{{with .Faucet}}, from <a href="https://{{.}}">{{.}}</a>{{end}}. The network fee is on top.</p>
         <div id="pay-adena" hidden>
           <button class="pay-button" id="pay" type="button"><span>Pay {{.Amount}} {{.Unit}} with Adena</span></button>
-          <p id="pay-status" role="status" data-tx="{{.TxURL}}"></p>
         </div>
         <div id="no-adena">
-          <a class="pay-button" href="https://adena.app" target="_blank" rel="noopener"><span>Install Adena</span><span aria-hidden="true">↗</span></a>
-          <p>Then reload this page.</p>
+          <p class="phone-note">Paying takes a computer: Adena is a desktop browser extension, and paying from code needs a terminal. <a href="#how">See how it works</a>.</p>
+          <button class="pay-button" id="send-link" type="button"><span>Send this page to a computer</span></button>
+          <a class="pay-button code-pay" href="#code"><span>Pay it from code</span><span aria-hidden="true">↓</span></a>
+          <a class="alt-pay code-steps" href="#code"><span>How to pay from code</span><span aria-hidden="true">↓</span></a>
+          <a class="alt-pay" href="https://adena.app" target="_blank" rel="noopener"><span>Or pay with Adena, a gno wallet</span><span aria-hidden="true">↗</span></a>
+          <ol class="setup">
+            <li>Install Adena in this browser.</li>
+            <li>Create an account, and fund it{{with .Faucet}} at <a href="https://{{.}}">{{.}}</a>{{end}}.</li>
+            <li>Reload this page, so Adena can reach it.</li>
+          </ol>
         </div>
+        <p id="pay-status" role="status" data-tx="{{.TxURL}}" tabindex="-1"></p>
         <a class="alt-pay" href="#code"><span>Or pay it from code</span><span aria-hidden="true">↓</span></a>
+        <p class="role">Adena only signs the payment. The seller's facilitator, which holds no key, checks it and broadcasts it.</p>
+        <nav class="next" aria-label="Next step">
+          <a class="pay-button" href="#sell"><span>Sell an endpoint in gno</span><span aria-hidden="true">↓</span></a>
+          <a class="alt-pay" href="#code"><span>Pay it from code</span><span aria-hidden="true">↓</span></a>
+        </nav>
         <dl>
           <div><dt>Network</dt><dd><code>{{.Network}}</code><span class="fine">chain id {{.ChainID}}</span></dd></div>
           <div><dt>Pay to</dt><dd><code>{{.PayTo}}</code></dd></div>
@@ -304,16 +407,17 @@ curl -si <span data-url>&lt;this page's URL&gt;</span></code></pre>
         <p><b>The script signs with the mnemonic you give it.</b> Read it first, and never give it a mnemonic that holds anything: use a throwaway key. A <a href="https://github.com/gnoverse/x402/blob/main/client/README.md#paying-with-a-session-key">session key</a> works too, with <code>X402_SESSION_MASTER</code> set to your address; the chain holds it to its spend limit.</p>
       </div>
       <ol class="steps">
-        <li><div><b>Read the script.</b> <a href="https://github.com/gnoverse/x402/blob/main/examples/weather/buy.mjs">examples/weather/buy.mjs</a> is the whole buyer the commands below run.</div></li>
-        <li><div><b>Make a throwaway key.</b> This prints a new mnemonic, its address and the command that pays this page with it, and saves none of them.
-          <pre data-copy><code>npx github:gnoverse/x402#client/v0.5.0 <span class="nowrap">--new-key</span> <span data-url>&lt;this page's URL&gt;</span></code></pre></div></li>
-        <li><div><b>Fund its address</b> at <a href="https://faucet.gno.land">faucet.gno.land</a> with test GNOT on <code class="nowrap">{{.Network}}</code>: {{.Amount}} {{.Unit}} for the weather, and the network fee on top.</div></li>
-        <li><div><b>Pay</b> with the command step 2 printed. It looks like this, and prints the transaction and the weather.
-          <pre><code>X402_MNEMONIC='&lt;mnemonic&gt;' npx github:gnoverse/x402#client/v0.5.0 <span data-url>&lt;this page's URL&gt;</span></code></pre></div></li>
+        <li><div><p><b>Read the script.</b> <a href="https://github.com/gnoverse/x402/blob/main/examples/weather/buy.mjs">examples/weather/buy.mjs</a> is the whole buyer the commands below run.</p></div></li>
+        <li><div><p><b>Make a throwaway key.</b> This prints a new mnemonic, its address and the command that pays this page with it, and saves none of them.</p>
+          <pre data-copy><code>npx github:gnoverse/x402#client/v0.5.0 <span class="nowrap">--new-key</span> <span data-pay-url>&lt;this page's URL&gt;</span></code></pre></div></li>
+        <li><div><p><b>Fund its address</b>{{with .Faucet}} at <a href="https://{{.}}">{{.}}</a>{{end}} with test GNOT on <code class="nowrap">{{.Network}}</code>: {{.Amount}} {{.Unit}} for the weather, and the network fee on top.</p></div></li>
+        <li><div><p><b>Pay</b> with the command step 2 printed. It looks like this, and prints the transaction and the weather.</p>
+          <pre><code>X402_MNEMONIC='&lt;mnemonic&gt;' npx github:gnoverse/x402#client/v0.5.0 <span data-pay-url>&lt;this page's URL&gt;</span></code></pre></div></li>
       </ol>
       <p>Both commands need git and Node 22.18+ or 24.11+. Running the buyer from a clone, or against another node, is in the <a href="https://github.com/gnoverse/x402/tree/main/examples/weather#paying-it">weather example's README</a>.</p>
+      <p class="warn">Testnet only. The mechanism is unaudited and pre-release; do not point it at real funds.</p>
       <p>A stock x402 client pays in gno after two lines: register the scheme, and admit <code>ugnot</code> (a millionth of a GNOT) to its spend controls, capped per request.</p>
-      <pre data-copy><code>import { ExactGnoScheme } from "@gnoverse/x402-gno/exact/client";
+      <pre class="snippet" data-copy><code tabindex="0">import { ExactGnoScheme } from "@gnoverse/x402-gno/exact/client";
 
 const client = new x402Client()
   .register("gno:*", new ExactGnoScheme(wallet))
@@ -321,9 +425,34 @@ const client = new x402Client()
     allowedAssets: [{ network: "gno:*", asset: "ugnot", maxAmountPerPayment: "1000000" }],
   });</code></pre>
 
+      <h2 id="sell">Sell an endpoint in gno</h2>
+      <p class="warn">Testnet only. The mechanism is unaudited and pre-release; do not point it at real funds.</p>
+      <p>A seller lists gno among the ways a route accepts payment, and the ecosystem's x402 middleware does the rest: it prices the route, answers 402 and reads the payment. Only the scheme is gno's. In Go:</p>
+      <pre class="snippet" data-copy><code tabindex="0">routes := x402http.RoutesConfig{
+    "GET /weather": {
+        Accepts: x402http.PaymentOptions{{"{{"}}
+            Scheme:  "exact",
+            PayTo:   "&lt;your g1 address&gt;",
+            Price:   x402.AssetAmount{Asset: "ugnot", Amount: "250000"},
+            Network: "{{.Network}}",
+        }},
+    },
+}
+
+handler := nethttpmw.X402Payment(nethttpmw.Config{
+    Routes: routes,
+    Facilitator: x402http.NewHTTPFacilitatorClient(&amp;x402http.FacilitatorConfig{
+        URL: facilitatorURL,
+    }),
+    Schemes: []nethttpmw.SchemeConfig{{"{{"}}
+        Network: "{{.Network}}",
+        Server:  gnoexact.NewExactGnoScheme(),
+    }},
+})(mux)</code></pre>
+      <p>The facilitator holds no key: it checks each payment and broadcasts what the buyer signed. One serves the onyx testnet at <code>https://facilitator.onyx.testnets.gno.land</code>, or <a href="https://github.com/gnoverse/x402/blob/main/docs/deploying.md">run your own</a>. The whole seller behind this page is <a href="https://github.com/gnoverse/x402/blob/main/examples/weather/main.go">examples/weather/main.go</a>.</p>
+
       <h2>Read more</h2>
       <p>The seller, the buyer and a facilitator you can run yourself are in <a href="https://github.com/gnoverse/x402/tree/main/examples/weather">examples/weather</a>. The mechanism and its payment model are in the <a href="https://github.com/gnoverse/x402#readme">gnoverse/x402 README</a>.</p>
-      <p class="warn">Testnet only. The mechanism is unaudited and pre-release; do not point it at real funds.</p>
 
       <footer>
         <p>x402 v2, scheme <code>exact</code>, network <code>{{.Network}}</code>.</p>

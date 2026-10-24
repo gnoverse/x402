@@ -139,22 +139,53 @@ the facilitator holds no key. The mechanism sets it, so no seller writes it. The
 `paymentFlow` key because the flow is `authorization`, the specification's default, which may be
 omitted.
 
-A browser gets a page instead (`paywall.html`): a masthead naming it a testnet demo with sample
-weather data and linking this repository, then the 402, a dial waiting for the reading (on a
-phone, only once paid), and the terms beside it: the price in GNOT, the network and the faucet, the payee, and how to pay. The
-middleware's own paywall supports EVM and Solana chains only. In a browser with the
-[Adena](https://adena.app) wallet, a visitor pays from the page. `paywall.js` works as a stock x402
-client does: it reads the terms, has Adena sign the bank send without broadcasting it, and repeats
-the request with the payment. Once the payment settles, the badge reads 200, the dial shows the
-temperature and the forecast, marked as sample data, and the page takes on the forecast's weather;
-the response body and the transaction show below, the transaction linked to gnoscan.io on `onyx-1`,
-and the page offers no second payment. A body that is not one of the four forecasts the page draws
-(sunny, cloudy, rain, snow) shows only as served. Without Adena, the pay button gives way to an
-Install Adena button that opens adena.app, and the page says to reload once it is installed;
-without JavaScript, neither shows. Below them, an "Or pay it from code" link leads down to the
-steps for paying from code, behind a warning to read the buyer first: make a throwaway key with it
-for the page's URL, fund the key, then run the pay command the key step printed.
-`/` redirects to `/weather`, and `/favicon.ico` serves the page's icon, unpriced.
+A browser gets a page instead (`paywall.html`): a masthead naming it an unaudited, pre-release
+testnet demo with sample weather data, or a local demo on a `dev` chain, and linking this
+repository, then the 402, two plain sentences on what x402 and settling are, the four steps of
+the exchange (402, sign, retry, 200), a dial waiting for the reading, and the terms beside it: the
+price in GNOT, then in ugnot with what a ugnot is, the network and, on `onyx-1`, its faucet, the
+payee, and how to pay. On a window 800px wide or less the steps and the dial follow the offer,
+which stays put as they appear: the dial once paid, the steps once a payment starts. The
+sentences on x402 follow it there too, so a 360x740 screen still shows the offer's first action.
+Once paid, the receipt there names the reading too, since the dial is then out of view. A touch
+screen pays on neither path, so there the offer says paying
+takes a computer and links how it works; its main button sends the page on to one through the share
+sheet or the clipboard, and a second says how to pay from code. The faucet line, Adena's install
+link and the steps to it wait for that computer. The middleware's own
+paywall supports EVM and Solana chains only. In a browser with the [Adena](https://adena.app)
+wallet, a visitor pays from the page. A line beside the
+offer says what Adena does there: it only signs, and the seller's facilitator, which holds no key,
+checks the payment and broadcasts it. `paywall.js` works as a stock x402 client does: it reads the
+terms, has Adena sign the bank send without broadcasting it, and repeats the request with the
+payment, lighting each step as it goes. Once the payment settles, the badge reads 200, the tab's
+title says the payment settled, the dial
+shows the temperature and the forecast, marked as sample data, and the page takes on the forecast's
+weather; the response body and the transaction show below, the transaction linked to gnoscan.io on
+`onyx-1`. The offer then becomes the receipt and offers no second payment: it points on to selling
+an endpoint in gno and to paying from code. A payment that may still settle, or whose answer never
+came back, withdraws the button and the link to pay from code too, and keeps the steps on the
+retry; a pending one links its transaction. The line beside the badge, the dial and the tab then
+say the payment was sent and is not confirmed, and the status line ends on reloading to pay again
+only if the payment never went through. A refusal says what happened to the payment before the
+reason's code, and what to do where the page knows, then gives the button back; so does a step
+Adena refused. A body that is not one of the four forecasts the page draws (sunny, cloudy, rain, snow) shows
+only as served. Without Adena, the offer leads with paying from code, a link down to its steps, and
+offers Adena second, with a link to adena.app and three steps: install it, create and fund an
+account, then reload the page, since in Chrome Adena reaches only pages loaded after its install; without
+JavaScript, only the link to paying from code shows. The steps sit behind a warning to read the
+buyer first: make a throwaway key with it for the page's URL, fund the key, then run the pay command
+the key step printed. The URL in those commands carries the tab's visit token, kept in the tab's
+`sessionStorage`. Once a command carrying it is copied, the page asks `/weather/visits/<token>` every
+3 seconds while in view, for 10 minutes after the copy or a return to the tab, and a reload asks on.
+A payment it finds shows as one made with Adena does, the status line naming it paid from code by
+the payer's address, shortened. Below them, the page shows how a seller lists gno on a route in Go, and where
+a facilitator runs. A warning that the mechanism is unaudited and pre-release comes right before the
+stock client's snippet and before the seller's.
+`/` redirects to `/weather`, and `/favicon.ico` serves the page's icon, unpriced. A paid request
+whose URL carries `?visit=<token>`, 32 hex characters, is kept for 15 minutes, up to 1000 at once,
+the first payment under a token winning: `/weather/visits/<token>` answers with its transaction,
+network, payer and the body served, or 404, never cached, on a rate limit of its own: 50 lookups a
+second, bursts of 100, for all pages together, whatever `-rate-per-second` and `-rate-burst` say.
 
 ## Paying it
 

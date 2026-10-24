@@ -189,8 +189,8 @@ func newSeller(ctx context.Context, cfg sellerConfig) (http.Handler, error) {
 	chainID := strings.TrimPrefix(cfg.network, "gno:")
 	var page strings.Builder
 	err := paywall.Execute(&page, struct {
-		Amount, Unit, Coin, Network, ChainID, PayTo, TxURL string
-		Script                                             template.JS
+		Amount, Unit, Coin, Network, ChainID, PayTo, TxURL, Faucet, Demo string
+		Script                                                           template.JS
 	}{
 		Amount:  amount,
 		Unit:    unit,
@@ -199,6 +199,8 @@ func newSeller(ctx context.Context, cfg sellerConfig) (http.Handler, error) {
 		ChainID: chainID,
 		PayTo:   cfg.payTo,
 		TxURL:   explorerTxURL(chainID),
+		Faucet:  faucetHost(chainID),
+		Demo:    demoLabel(chainID),
 		Script:  template.JS(paywallScript),
 	})
 	if err != nil {
@@ -260,8 +262,11 @@ func newSeller(ctx context.Context, cfg sellerConfig) (http.Handler, error) {
 
 	// The limit runs before the middleware, so a refused request costs the
 	// facilitator nothing.
+	visits := newVisitBook()
 	limited := http.NewServeMux()
-	limited.Handle(route, newRateLimit(cfg.ratePerSecond, cfg.rateBurst).guard(paid))
+	limited.Handle(route, newRateLimit(cfg.ratePerSecond, cfg.rateBurst).guard(visits.recordSettled(paid)))
+	limited.Handle("GET "+weatherPath+"/visits/{token}",
+		newRateLimit(lookupRatePerSecond, lookupRateBurst).guard(visits.lookupHandler()))
 
 	// Someone who types the host alone gets the demo: at the public URL when the
 	// seller knows it, since a proxy that strips a prefix with no trailing slash
@@ -336,4 +341,23 @@ func explorerTxURL(chainID string) string {
 		return "https://gnoscan.io/transactions/details?chainId=onyx-1&txhash="
 	}
 	return ""
+}
+
+// faucetHost returns the host of the faucet that hands out chainID's test GNOT,
+// or "" for a chain no public faucet serves.
+func faucetHost(chainID string) string {
+	switch chainID {
+	case "onyx-1":
+		return "faucet.gno.land"
+	}
+	return ""
+}
+
+// demoLabel names the demo by where chainID runs: dev is the chain gnodev and
+// gnoland start by default, local to whoever runs them, and any other a testnet.
+func demoLabel(chainID string) string {
+	if chainID == "dev" {
+		return "local demo"
+	}
+	return "testnet demo"
 }

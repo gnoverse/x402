@@ -1,0 +1,42 @@
+# A copy of a payment the facilitator is settling, or has settled, is refused
+# as duplicate_settlement. The copy charges nothing, but the payment it copies
+# may already have gone through, so the buyer is not told it did not pay.
+#
+# A copy carries the payment's own signed bytes: a buyer that pays again before
+# its first payment executes signs the same transaction whenever the gas price
+# it reads is unchanged, its account's sequence not having moved.
+# refusedSettlement in seller.json has x402seller answer the paid request the
+# way a seller on @x402/core's TypeScript server relays the refusal, with the
+# hash.
+adduser seller
+
+gnoland start
+
+x402facilitator
+x402seller seller.json $seller_user_addr
+
+! exec node $X402_EXAMPLE_BUYER
+
+# Withheld, named by its hash, and not reported as unpaid.
+! stdout 'sunny'
+! stdout 'not paid'
+stdout 'already settling: tx fa01716b171e58dfdc84b5075017a9d1ac20b0d745ed75627f3f80effa14317e \(duplicate_settlement\)'
+
+-- seller.json --
+{
+  "route": "GET /weather",
+  "price": { "asset": "ugnot", "amount": "250000" },
+  "description": "Weather data",
+  "mimeType": "application/json",
+  "body": {
+    "location": "Paris",
+    "forecast": "sunny",
+    "celsius": 24
+  },
+  "refusedSettlement": {
+    "errorReason": "duplicate_settlement",
+    "errorMessage": "this facilitator is settling or has settled this payment",
+    "payer": "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5",
+    "transaction": "fa01716b171e58dfdc84b5075017a9d1ac20b0d745ed75627f3f80effa14317e"
+  }
+}

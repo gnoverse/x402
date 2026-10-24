@@ -176,6 +176,13 @@ if (!paid.ok) {
     console.log(
       `not confirmed yet: tx ${receipt.transaction} (${reason}); the weather was withheld, and the payment may still go through`,
     );
+  } else if (receipt.errorReason === "duplicate_settlement") {
+    // A copy of a payment the facilitator is settling or has settled: the copy
+    // charges nothing, but the payment it copies may already have gone through.
+    const tx = receipt.transaction ? `tx ${receipt.transaction} ` : "";
+    console.log(
+      `already settling: ${tx}(${reason}); the weather was withheld, and the payment may already have gone through`,
+    );
   } else {
     // A refusal may name a transaction as well, such as one a block executed
     // and aborted, which still charged the network fee.

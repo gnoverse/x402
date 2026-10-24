@@ -145,10 +145,10 @@ func buyerScript(t *testing.T) string {
 }
 
 // exampleBuyerScript is the buyer shipped with the weather example. The happy-path,
-// session, pending-settlement, refused-settlement and unfunded-payer scenarios drive
-// it instead of the harness buyer, so the file a reader lands on first is the one CI
-// proves — the example depends on nothing, and this test is what may depend on the
-// example.
+// session, pending-settlement, refused-settlement, duplicate-settlement and
+// unfunded-payer scenarios drive it instead of the harness buyer, so the file a
+// reader lands on first is the one CI proves — the example depends on nothing, and
+// this test is what may depend on the example.
 func exampleBuyerScript(t *testing.T) string {
 	t.Helper()
 

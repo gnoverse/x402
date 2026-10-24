@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import { GnoWallet } from "@gnolang/gno-js-client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { shellWord } from "./paywall.js";
+
 const BUYER = new URL("./buy.mjs", import.meta.url);
 const REPOSITORY = fileURLToPath(new URL("../../", import.meta.url));
 const MANIFEST = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
@@ -215,6 +217,20 @@ describe("buy.mjs --new-key", () => {
     expect(pay).toBe(
       `X402_MNEMONIC='${mnemonic}' node examples/weather/buy.mjs 'https://weather.example/weather?city=paris&units=c'`,
     );
+  });
+
+  // The weather page shows the pay command this prints, so both write a URL as
+  // the same shell word.
+  it("prints the seller URL as the weather page writes it", async () => {
+    for (const seller of [
+      "https://weather.example/weather",
+      "https://weather.example/weather?city=paris&units=c",
+      "https://weather.example/o'clock/weather",
+    ]) {
+      const { mnemonic, pay } = await newKey({ args: [seller], cwd: REPOSITORY });
+
+      expect(pay).toBe(`X402_MNEMONIC='${mnemonic}' node examples/weather/buy.mjs ${shellWord(seller)}`);
+    }
   });
 
   it("touches neither the network nor the disk", async () => {
